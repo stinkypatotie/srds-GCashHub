@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sir Ramos Drugstore's GCash Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        const defaultFeeRanges = [
+            { min: 1, max: 500, fee: 10 },
+            { min: 501, max: 1000, fee: 15 },
+            { min: 1001, max: 2000, fee: 20 },
+            { min: 2001, max: 3000, fee: 30 },
+			{ min: 3001, max: 4000, fee: 40 },
+			{ min: 4001, max: 5000, fee: 50 },
+			{ min: 5001, max: 6000, fee: 60 },
+			{ min: 6001, max: 7000, fee: 70 },
+			{ min: 7001, max: 8000, fee: 80 },
+			{ min: 8001, max: 9000, fee: 90 },
+			{ min: 9001, max: 10000, fee: 100 }
+        ];
+
+        let state = {
+            initialized: false,
+            cashFund: 0,
+            digitalFund: 0,
+            transactionType: 'cashin',
+            amount: '',
+            discountedFee: '',
+            useDiscount: false,
+            deductFeeFromAmount: false,
+            tendered: '',
+            dailyTotal: 0,
+            transactions: [],
+            showAdmin: false,
+            isAdminAuth: false,
+            adminPassword: '',
+            savedPassword: 'admin123',
+            feeRanges: [...defaultFeeRanges],
+            billsFee: 15,
+            loadFee: 5,
+            editingRanges: false,
+            tempRanges: [],
+            telegramBotToken: '',
+            telegramChatId: '',
+            showAdjustFunds: false
+        };
+
+        function loadData() {
+            const stored = localStorage.getItem('gcashData');
+            if (stored) {
+                const data = JSON.parse(stored);
+                state.feeRanges = data.feeRanges || defaultFeeRanges;
+                state.billsFee = data.billsFee || 15;
+                state.loadFee = data.loadFee || 5;
+                state.savedPassword = data.password || 'admin123';
+                state.telegramBotToken = data.telegramBotToken || '';
+                state.telegramChatId = data.telegramChatId || '';
+                
+                const today = new Date().toDateString();
+                if (data.lastDate === today) {
+                    state.dailyTotal = data.dailyTotal || 0;
+                    state.transactions = data.transactions || [];
+                    if (data.initialized) {
+                        state.initialized = true;
+                        state.cashFund = data.cashFund || 0;
+                        state.digitalFund = data.digitalFund || 0;
+                    }
+                }
+            }
+        }
+
+        function saveData() {
+            if (state.initialized) {
+                const data = {
+                    feeRanges: state.feeRanges,
+                    billsFee: state.billsFee,
+                    loadFee: state.loadFee,
+                    password: state.savedPassword,
+                    telegramBotToken: state.telegramBotToken,
+                    telegramChatId: state.telegramChatId,
+                    dailyTotal: state.dailyTotal,
+                    transactions: state.transactions,
+                    cashFund: state.cashFund,
+                    digitalFund: state.digitalFund,
+                    initialized: state.initialized,
+                    lastDate: new Date().toDateString()
+                };
+                localStorage.setItem('gcashData', JSON.stringify(data));
+            }
+        }
+
+        function calculateFee(amt, type) {
+            const numAmt = parseFloat(amt);
+            if (isNaN(numAmt) || numAmt <= 0) return 0;
+            if (type === 'bills') return state.billsFee;
+            if (type === 'load') return state.loadFee;
+            if (numAmt > 10000) return numAmt * 0.01;
+            for (let range of state.feeRanges) {
+                if (numAmt >= range.min && numAmt <= range.max) return range.fee;
+            }
+            return 0;
+        }
+
+        async function sendTelegram(message) {
+            if (!state.telegramBotToken || !state.telegramChatId) return;
+            try {
+                await fetch('https://api.telegram.org/bot' + state.telegramBotToken + '/sendMessage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: state.telegramChatId, text: message, parse_mode: 'HTML' })
+                });
+            } catch (e) {}
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            
+            if (!state.initialized) {
+                app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"><div class="text-center mb-6"><div class="text-6xl mb-4">💰</div><h1 class="text-3xl font-bold text-gray-800">GCash Fee Calculator</h1><p class="text-gray-600 mt-2">Initialize your funds to begin</p></div><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Initial Cash Fund (₱)</label><input id="initialCash" type="number" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Initial Digital Fund (₱)</label><input id="initialDigital" type="number" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div><button onclick="handleInitialize()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Start Using App</button></div></div></div>';
+                return;
+            }
+
+            if (state.showAdjustFunds) {
+                app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"><div class="text-center mb-6"><div class="text-4xl mb-4">💰</div><h1 class="text-2xl font-bold text-gray-800">Adjust Funds</h1></div><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Cash Fund (₱)</label><input id="adjustCash" type="number" value="' + state.cashFund + '" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Digital Fund (₱)</label><input id="adjustDigital" type="number" value="' + state.digitalFund + '" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" /></div><div class="flex gap-2"><button onclick="handleAdjustFunds()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Save</button><button onclick="state.showAdjustFunds=false;render()" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400">Cancel</button></div></div></div></div>';
+                return;
+            }
+
+            if (state.showAdmin && !state.isAdminAuth) {
+                app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"><div class="text-center mb-6"><div class="text-6xl mb-4">🔒</div><h1 class="text-2xl font-bold text-gray-800">Admin Access</h1></div><div class="space-y-4"><input id="adminPass" type="password" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Enter admin password" onkeypress="if(event.key===\'Enter\')handleAdminLogin()" /><div class="flex gap-2"><button onclick="handleAdminLogin()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Login</button><button onclick="state.showAdmin=false;render()" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400">Cancel</button></div></div></div></div>';
+                return;
+            }
+
+            if (state.showAdmin && state.isAdminAuth) {
+                let rangesHTML = '';
+                if (state.editingRanges) {
+                    state.tempRanges.forEach((r, i) => {
+                        rangesHTML += '<div class="flex gap-2 items-center bg-gray-50 p-2 rounded"><input type="number" value="' + r.min + '" onchange="state.tempRanges[' + i + '].min=parseFloat(this.value)||0;render()" class="w-24 px-2 py-1 border rounded text-sm" /><span>-</span><input type="number" value="' + r.max + '" onchange="state.tempRanges[' + i + '].max=parseFloat(this.value)||0;render()" class="w-24 px-2 py-1 border rounded text-sm" /><span>=</span><input type="number" value="' + r.fee + '" onchange="state.tempRanges[' + i + '].fee=parseFloat(this.value)||0;render()" class="w-24 px-2 py-1 border rounded text-sm" /><button onclick="state.tempRanges.splice(' + i + ',1);render()" class="text-red-600">×</button></div>';
+                    });
+                    rangesHTML += '<button onclick="state.tempRanges.push({min:0,max:0,fee:0});render()" class="w-full py-2 border-2 border-dashed border-gray-300 rounded text-gray-600 hover:border-blue-500">+ Add Range</button>';
+                } else {
+                    state.feeRanges.forEach(r => {
+                        rangesHTML += '<div class="text-sm">₱' + r.min.toLocaleString() + ' - ₱' + r.max.toLocaleString() + ' = ₱' + r.fee + '</div>';
+                    });
+                    rangesHTML += '<div class="text-sm text-gray-600 pt-2 border-t">₱10,001 and up = +1%</div>';
+                }
+
+                app.innerHTML = '<div class="min-h-screen bg-gray-100 p-4"><div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6"><div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold text-gray-800">Admin Settings</h1><button onclick="state.showAdmin=false;state.isAdminAuth=false;render()" class="text-gray-600 hover:text-gray-800 text-3xl">×</button></div><div class="space-y-6"><div><label class="block text-sm font-medium text-gray-700 mb-2">Change Admin Password</label><input type="password" value="' + state.savedPassword + '" onchange="state.savedPassword=this.value" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Telegram Bot Token</label><input type="text" value="' + state.telegramBotToken + '" onchange="state.telegramBotToken=this.value" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Enter your bot token" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Telegram Chat ID</label><input type="text" value="' + state.telegramChatId + '" onchange="state.telegramChatId=this.value" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Enter your chat ID" /></div><div><div class="flex justify-between items-center mb-2"><label class="text-sm font-medium text-gray-700">Fee Ranges</label>' + (!state.editingRanges ? '<button onclick="state.tempRanges=JSON.parse(JSON.stringify(state.feeRanges));state.editingRanges=true;render()" class="text-blue-600 hover:text-blue-700">✏️ Edit</button>' : '') + '</div><div class="space-y-2 max-h-96 overflow-y-auto">' + rangesHTML + '</div></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Bills Fee (₱)</label><input type="number" value="' + state.billsFee + '" onchange="state.billsFee=parseFloat(this.value)||0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Load Fee (₱)</label><input type="number" value="' + state.loadFee + '" onchange="state.loadFee=parseFloat(this.value)||0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" /></div></div><button onclick="handleSaveSettings()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">💾 Save Settings</button><div class="pt-4 border-t mt-4"><h3 class="text-lg font-bold text-gray-800 mb-3">Reset Options</h3><button onclick="handleResetDay()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 mb-2">🔄 Reset for New Day</button><button onclick="handleResetAll()" class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700">🗑️ Clear All Data</button></div></div></div></div>';
+                return;
+            }
+
+            const currentFee = state.amount ? (state.transactionType === 'bills' ? state.billsFee : state.transactionType === 'load' ? state.loadFee : (state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(state.amount, state.transactionType))) : 0;
+            let total = state.amount ? parseFloat(state.amount) + currentFee : 0;
+            let amountToReceive = 0;
+            
+            // For cash out with deduct fee option, calculate amount to receive
+            if (state.transactionType === 'cashout' && state.deductFeeFromAmount && state.amount) {
+                amountToReceive = parseFloat(state.amount) - currentFee;
+                total = parseFloat(state.amount); // Total is just the amount entered
+            }
+            
+            const amt = parseFloat(state.amount);
+            const tend = parseFloat(state.tendered);
+            let changeTotal = 0;
+            if (!isNaN(amt) && !isNaN(tend)) {
+                let t = amt;
+                if (state.transactionType === 'bills') t += state.billsFee;
+                else if (state.transactionType === 'load') t += state.loadFee;
+                else if (state.transactionType === 'cashout' && state.deductFeeFromAmount) {
+                    // For deduct fee option, customer only receives amount minus fee
+                    t = amountToReceive;
+                } else {
+                    t += (state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(state.amount, state.transactionType));
+                }
+                changeTotal = tend - t;
+            }
+
+            let transHTML = '';
+            if (state.transactions.length === 0) {
+                transHTML = '<div class="text-center text-gray-500 py-8">No transactions yet</div>';
+            } else {
+                state.transactions.forEach(t => {
+                    transHTML += '<div class="bg-gray-50 p-4 rounded-lg flex justify-between items-center"><div><div class="font-semibold text-gray-800">' + t.description + '</div><div class="text-sm text-gray-600">' + t.timestamp + '</div></div><div class="text-right"><div class="font-bold text-blue-600">Fee: ₱' + t.fee.toFixed(2) + '</div></div></div>';
+                });
+            }
+
+            app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 p-4"><div class="max-w-7xl mx-auto flex gap-4"><div class="w-80 flex-shrink-0"><div class="bg-white rounded-2xl shadow-2xl p-6 mb-4"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold text-gray-800">Funds</h2><button onclick="state.showAdmin=true;render()" class="text-gray-600 hover:text-gray-800 text-2xl">⚙️</button></div><div class="space-y-3"><div class="bg-green-100 p-4 rounded-lg cursor-pointer hover:bg-green-200" onclick="showAdjustFunds()"><div class="text-sm text-green-800 font-medium">Cash Fund</div><div class="text-xl font-bold text-green-900">₱' + state.cashFund.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div><div class="text-xs text-green-700 mt-1">Click to adjust</div></div><div class="bg-blue-100 p-4 rounded-lg cursor-pointer hover:bg-blue-200" onclick="showAdjustFunds()"><div class="text-sm text-blue-800 font-medium">Digital Fund</div><div class="text-xl font-bold text-blue-900">₱' + state.digitalFund.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div><div class="text-xs text-blue-700 mt-1">Click to adjust</div></div><div class="bg-purple-100 p-4 rounded-lg"><div class="text-sm text-purple-800 font-medium">Daily Fee Total</div><div class="text-xl font-bold text-purple-900">₱' + state.dailyTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div></div></div></div><div class="bg-white rounded-2xl shadow-2xl p-6"><h2 class="text-lg font-bold text-gray-800 mb-3">Transaction Type</h2><div class="space-y-2"><button onclick="state.transactionType=\'cashin\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'cashin' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">⬇️</span><span>Cash In</span></button><button onclick="state.transactionType=\'cashout\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'cashout' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">⬆️</span><span>Cash Out</span></button><button onclick="state.transactionType=\'bills\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'bills' ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">📄</span><span>Bills Payment</span></button><button onclick="state.transactionType=\'load\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'load' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">📱</span><span>Load</span></button></div></div></div><div class="flex-1"><div class="bg-white rounded-2xl shadow-2xl p-6 mb-4"><h1 class="text-3xl font-bold text-gray-800 mb-6">🧮 Sir Ramos Drugstore&apos;s GCash Hub</h1><p>Mura Na, May Blessing Ka Pa.</p><div class="grid grid-cols-2 gap-4 mb-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Amount (₱)</label><input id="amount" type="number" value="' + state.amount + '" onchange="state.amount=this.value;render()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Tendered (₱)</label><input id="tendered" type="number" value="' + state.tendered + '" onchange="state.tendered=this.value;render()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div>' + ((state.transactionType === 'cashin' || state.transactionType === 'cashout') ? '<div class="flex items-center gap-2"><input type="checkbox" ' + (state.useDiscount ? 'checked' : '') + ' onchange="state.useDiscount=this.checked;render()" class="w-5 h-5" /><label class="text-sm font-medium text-gray-700">Use Discounted Fee</label></div>' + (state.useDiscount ? '<div><label class="block text-sm font-medium text-gray-700 mb-2">Discounted Fee (₱)</label><input type="number" value="' + state.discountedFee + '" onchange="state.discountedFee=this.value;render()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div>' : '') : '') + (state.transactionType === 'cashout' ? '<div class="flex items-center gap-2"><input type="checkbox" ' + (state.deductFeeFromAmount ? 'checked' : '') + ' onchange="state.deductFeeFromAmount=this.checked;render()" class="w-5 h-5" /><label class="text-sm font-medium text-gray-700">Deduct fee from amount to receive</label></div>' : '') + '</div><div class="bg-gray-100 p-4 rounded-lg mb-4 space-y-2"><div class="flex justify-between text-lg"><span class="font-medium">Transaction Fee:</span><span class="font-bold text-blue-600">₱' + currentFee.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' + (state.transactionType === 'cashout' && state.deductFeeFromAmount && state.amount ? '<div class="flex justify-between text-lg"><span class="font-medium">Amount to Receive:</span><span class="font-bold text-green-600">₱' + amountToReceive.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' : '') + '<div class="flex justify-between text-lg"><span class="font-medium">Total:</span><span class="font-bold">₱' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' + (state.tendered ? '<div class="flex justify-between text-xl pt-2 border-t-2 border-gray-300"><span class="font-bold">Change:</span><span class="font-bold ' + (changeTotal >= 0 ? 'text-green-600' : 'text-red-600') + '">₱' + changeTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' : '') + '</div><button onclick="handleTransaction()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700">Process Transaction</button></div><div class="bg-white rounded-2xl shadow-2xl p-6"><h2 class="text-xl font-bold text-gray-800 mb-4">Transaction History</h2><div class="space-y-2 max-h-96 overflow-y-auto">' + transHTML + '</div></div></div></div></div>';
+        }
+
+        function handleInitialize() {
+            const cash = parseFloat(document.getElementById('initialCash').value);
+            const digital = parseFloat(document.getElementById('initialDigital').value);
+            if (isNaN(cash) || isNaN(digital) || cash < 0 || digital < 0) {
+                alert('Please enter valid amounts');
+                return;
+            }
+            state.cashFund = cash;
+            state.digitalFund = digital;
+            state.initialized = true;
+            saveData();
+            render();
+        }
+
+        function handleTransaction() {
+            const amt = parseFloat(state.amount);
+            if (isNaN(amt) || amt <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+
+            let fee = 0, newCash = state.cashFund, newDigital = state.digitalFund, description = '';
+
+            if (state.transactionType === 'cashin') {
+                fee = state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(amt, 'cashin');
+                if (state.digitalFund < amt) { alert('Insufficient digital fund'); return; }
+                newDigital -= amt;
+                newCash += amt;
+                description = 'Cash In: ₱' + amt.toFixed(2);
+            } else if (state.transactionType === 'cashout') {
+                fee = state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(amt, 'cashout');
+                
+                if (state.deductFeeFromAmount) {
+                    // Fee is deducted from amount - customer receives (amount - fee)
+                    const amountToReceive = amt - fee;
+                    if (amountToReceive <= 0) { alert('Fee exceeds amount. Please enter a larger amount.'); return; }
+                    if (state.cashFund < amountToReceive) { alert('Insufficient cash fund'); return; }
+                    newCash -= amountToReceive;
+                    newDigital += amt;
+                    description = 'Cash Out: ₱' + amt.toFixed(2) + ' (Received: ₱' + amountToReceive.toFixed(2) + ')';
+                } else {
+                    // Traditional cash out - customer pays amount, fee is separate
+                    if (state.cashFund < amt) { alert('Insufficient cash fund'); return; }
+                    newCash -= amt;
+                    newDigital += amt;
+                    description = 'Cash Out: ₱' + amt.toFixed(2);
+                }
+            } else if (state.transactionType === 'bills') {
+                fee = calculateFee(amt, 'bills');
+                if (state.cashFund < (amt + fee)) { alert('Insufficient cash fund'); return; }
+                newCash -= (amt + fee);
+                description = 'Bills Payment: ₱' + amt.toFixed(2);
+            } else if (state.transactionType === 'load') {
+                fee = calculateFee(amt, 'load');
+                if (state.cashFund < (amt + fee)) { alert('Insufficient cash fund'); return; }
+                newCash -= (amt + fee);
+                description = 'Load: ₱' + amt.toFixed(2);
+            }
+
+            state.cashFund = newCash;
+            state.digitalFund = newDigital;
+            state.dailyTotal += fee;
+            state.transactions.unshift({
+                type: state.transactionType,
+                amount: amt,
+                fee: fee,
+                timestamp: new Date().toLocaleString(),
+                description
+            });
+
+            sendTelegram('<b>New Transaction</b>\n' + description + '\nFee: ₱' + fee.toFixed(2) + '\nCash Fund: ₱' + newCash.toFixed(2) + '\nDigital Fund: ₱' + newDigital.toFixed(2) + '\nDaily Total Fees: ₱' + state.dailyTotal.toFixed(2));
+
+            state.amount = '';
+            state.discountedFee = '';
+            state.useDiscount = false;
+            state.deductFeeFromAmount = false;
+            state.tendered = '';
+            saveData();
+            render();
+        }
+
+        function handleAdminLogin() {
+            const pass = document.getElementById('adminPass').value;
+            if (pass === state.savedPassword) {
+                state.isAdminAuth = true;
+                state.adminPassword = '';
+                render();
+            } else {
+                alert('Incorrect password');
+            }
+        }
+
+        function handleSaveSettings() {
+            if (state.editingRanges) {
+                state.feeRanges = state.tempRanges;
+                state.editingRanges = false;
+            }
+            saveData();
+            alert('Settings saved successfully');
+            render();
+        }
+
+        function handleResetDay() {
+            if (confirm('Reset for a new day? This will:\n- Clear daily fee total\n- Clear transaction history\n- Ask for new initial funds\n\nSettings will be kept.')) {
+                state.initialized = false;
+                state.cashFund = 0;
+                state.digitalFund = 0;
+                state.dailyTotal = 0;
+                state.transactions = [];
+                state.amount = '';
+                state.discountedFee = '';
+                state.useDiscount = false;
+                state.tendered = '';
+                localStorage.removeItem('gcashData');
+                const settingsData = {
+                    feeRanges: state.feeRanges,
+                    billsFee: state.billsFee,
+                    loadFee: state.loadFee,
+                    password: state.savedPassword,
+                    telegramBotToken: state.telegramBotToken,
+                    telegramChatId: state.telegramChatId
+                };
+                localStorage.setItem('gcashData', JSON.stringify(settingsData));
+                state.showAdmin = false;
+                state.isAdminAuth = false;
+                render();
+            }
+        }
+
+        function handleResetAll() {
+            if (confirm('Clear ALL data? This will reset everything including settings!\n\nThis cannot be undone.')) {
+                localStorage.removeItem('gcashData');
+                state.initialized = false;
+                state.cashFund = 0;
+                state.digitalFund = 0;
+                state.dailyTotal = 0;
+                state.transactions = [];
+                state.amount = '';
+                state.discountedFee = '';
+                state.useDiscount = false;
+                state.tendered = '';
+                state.showAdmin = false;
+                state.isAdminAuth = false;
+                state.savedPassword = 'admin123';
+                state.feeRanges = [...defaultFeeRanges];
+                state.billsFee = 15;
+                state.loadFee = 5;
+                state.telegramBotToken = '';
+                state.telegramChatId = '';
+                render();
+            }
+        }
+
+        function showAdjustFunds() {
+            state.showAdjustFunds = true;
+            render();
+        }
+
+        function handleAdjustFunds() {
+            const cash = parseFloat(document.getElementById('adjustCash').value);
+            const digital = parseFloat(document.getElementById('adjustDigital').value);
+            if (isNaN(cash) || isNaN(digital) || cash < 0 || digital < 0) {
+                alert('Please enter valid amounts');
+                return;
+            }
+            state.cashFund = cash;
+            state.digitalFund = digital;
+            state.showAdjustFunds = false;
+            saveData();
+            render();
+        }
+
+        loadData();
+        render();
+    </script>
+</body>
+</html>
