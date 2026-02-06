@@ -3,373 +3,950 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sir Ramos Drugstore's GCash Hub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>GCash Hub</title>
     <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: moveBackground 20s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes moveBackground {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            margin-bottom: 20px;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+
+        .transaction-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .transaction-btn {
+            padding: 50px 20px;
+            border: 3px solid;
+            border-radius: 20px;
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .transaction-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .transaction-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .transaction-btn .emoji {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .transaction-btn.cash-in {
+            background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+            border-color: #10b981;
+            color: #065f46;
+        }
+
+        .transaction-btn.cash-out {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-color: #ef4444;
+            color: #991b1b;
+        }
+
+        .transaction-btn.mobile-load {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border-color: #3b82f6;
+            color: #1e40af;
+        }
+
+        .transaction-btn.staff-only {
+            background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%);
+            border-color: #a855f7;
+            color: #6b21a8;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 16px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .calculation-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .calculation-box h3 {
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .calculation-box p {
+            margin: 8px 0;
+            font-size: 16px;
+        }
+
+        .calculation-box .total {
+            font-size: 28px;
+            font-weight: bold;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .transaction-history {
+            margin-top: 30px;
+        }
+
+        .transaction-item {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 12px;
+            border-left: 5px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .transaction-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .transaction-item .type {
+            display: inline-block;
+            padding: 6px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .transaction-item .timestamp {
+            float: right;
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        .transaction-item .details {
+            color: #374151;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .admin-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 20px 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            z-index: 1000;
+            animation: slideInRight 0.5s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .transaction-grid {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
-    <div id="app"></div>
+    <div class="container">
+        <div id="mainView" class="card">
+            <div class="header">
+                <h1>💰 Sir Ramos Drugstore GCash Hub</h1>
+                <button class="btn btn-primary" onclick="showAdminLogin()">🔐 Admin</button>
+            </div>
+            <div id="transactionSelector">
+                <div class="transaction-grid">
+                    <button class="transaction-btn cash-in" onclick="selectTransaction('CASH IN')">
+                        <span class="emoji">💵</span>Cash In
+                    </button>
+                    <button class="transaction-btn cash-out" onclick="selectTransaction('CASH OUT')">
+                        <span class="emoji">💸</span>Cash Out
+                    </button>
+                    <button class="transaction-btn mobile-load" onclick="selectTransaction('MOBILE LOAD')">
+                        <span class="emoji">📱</span>Mobile Load
+                    </button>
+                    <button class="transaction-btn staff-only" onclick="selectTransaction('STAFF ONLY')">
+                        <span class="emoji">👤</span>Staff Only
+                    </button>
+                </div>
+            </div>
+            <div id="transactionForm" class="hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 id="transactionTitle"></h2>
+                    <button class="btn btn-secondary" onclick="resetTransaction()">🔄 Change</button>
+                </div>
+                <div id="amountGroup" class="form-group">
+                    <label>💰 Amount (PHP)</label>
+                    <input type="number" id="amount" step="0.01" min="0" placeholder="Enter amount" oninput="updateCalculation()">
+                </div>
+                <div id="cashOutOptions" class="form-group hidden">
+                    <label>⚙️ Fee Option</label>
+                    <select id="cashOutOption" onchange="updateCalculation()">
+                        <option value="add">Add fee to amount</option>
+                        <option value="deduct">Deduct fee from amount</option>
+                    </select>
+                </div>
+                <div id="staffFields" class="hidden">
+                    <div class="form-group">
+                        <label>💰 Amount (PHP)</label>
+                        <input type="number" id="staffAmount" step="0.01" min="0" placeholder="Enter amount">
+                    </div>
+                    <div class="form-group">
+                        <label>👤 Staff Name</label>
+                        <input type="text" id="staffName" placeholder="Enter staff name">
+                    </div>
+                    <div class="form-group">
+                        <label>📝 Remarks</label>
+                        <textarea id="remarks" rows="3" placeholder="Enter remarks"></textarea>
+                    </div>
+                </div>
+                <div id="calculationBox" class="calculation-box hidden"></div>
+                <div id="tenderedGroup" class="form-group hidden">
+                    <label id="tenderedLabel">💵 Amount Tendered (PHP)</label>
+                    <input type="number" id="tendered" step="0.01" min="0" placeholder="Enter amount tendered" oninput="updateChange()">
+                </div>
+                <div id="changeBox" class="calculation-box hidden" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    <h3>💸 Change</h3>
+                    <p class="total" id="changeAmount">PHP 0.00</p>
+                </div>
+                <button class="btn btn-primary" style="width: 100%;" onclick="submitTransaction()">✅ Submit Transaction</button>
+            </div>
+            <div id="recentTransactions" class="transaction-history hidden">
+                <h3>📊 Recent Transactions</h3>
+                <div id="transactionsList"></div>
+            </div>
+        </div>
+        <div id="adminLoginView" class="card hidden">
+            <div class="text-center mb-20">
+                <h2>🔐 Admin Login</h2>
+            </div>
+            <div class="form-group">
+                <input type="password" id="adminPassword" placeholder="Enter password" onkeypress="handleLoginEnter(event)">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="adminLogin()">🔓 Login</button>
+            <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="hideAdminLogin()">← Back</button>
+            <p style="text-align: center; margin-top: 15px; color: #6b7280; font-size: 12px;">AUTHORIZED PERSONEL ONLY</p>
+        </div>
+        <div id="adminPanelView" class="hidden">
+            <div class="card">
+                <div class="header">
+                    <h2>⚙️ Admin Panel</h2>
+                    <button class="btn btn-secondary" onclick="logoutAdmin()">🚪 Logout</button>
+                </div>
+                <div class="grid-2 mb-20">
+                    <div class="form-group">
+                        <label>🤖 Telegram Bot Token</label>
+                        <input type="text" id="telegramToken" placeholder="Enter bot token">
+                    </div>
+                    <div class="form-group">
+                        <label>💬 Telegram Chat ID</label>
+                        <input type="text" id="telegramChatId" placeholder="Enter chat ID">
+                    </div>
+                </div>
+                <div class="admin-controls">
+                    <button class="btn btn-success" onclick="exportCSV()">📥 Export CSV</button>
+                    <button class="btn btn-info" onclick="sendAllTelegram()">📤 Send All to Telegram</button>
+                    <button class="btn btn-danger" onclick="clearLog()">🗑️ Clear Log</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3>📋 Transaction History (<span id="transactionCount">0</span>)</h3>
+                <div style="overflow-x: auto;">
+                    <table><thead><tr><th>⏰ Timestamp</th><th>📌 Type</th><th>📝 Details</th></tr></thead><tbody id="adminTableBody"></tbody></table>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
-        const defaultFeeRanges = [
-            { min: 1, max: 500, fee: 10 },
-            { min: 501, max: 1000, fee: 15 },
-            { min: 1001, max: 2000, fee: 20 },
-            { min: 2001, max: 3000, fee: 30 },
-			{ min: 3001, max: 4000, fee: 40 },
-			{ min: 4001, max: 5000, fee: 50 },
-			{ min: 5001, max: 6000, fee: 60 },
-			{ min: 6001, max: 7000, fee: 70 },
-			{ min: 7001, max: 8000, fee: 80 },
-			{ min: 8001, max: 9000, fee: 90 },
-			{ min: 9001, max: 10000, fee: 100 }
-        ];
+var transactions=[];
+var currentTransaction='';
+var telegramToken='';
+var telegramChatId='';
+var currentTotal=0;
 
-        let state = {
-            initialized: false,
-            cashFund: 0,
-            digitalFund: 0,
-            transactionType: 'cashin',
-            amount: '',
-            discountedFee: '',
-            useDiscount: false,
-            deductFeeFromAmount: false,
-            tendered: '',
-            dailyTotal: 0,
-            transactions: [],
-            showAdmin: false,
-            isAdminAuth: false,
-            adminPassword: '',
-            savedPassword: 'admin123',
-            feeRanges: [...defaultFeeRanges],
-            billsFee: 15,
-            loadFee: 5,
-            editingRanges: false,
-            tempRanges: [],
-            telegramBotToken: '',
-            telegramChatId: '',
-            showAdjustFunds: false
-        };
+function loadTransactions(){
+    var s=localStorage.getItem('transactions');
+    if(s){transactions=JSON.parse(s)}
+    var tk=localStorage.getItem('telegramToken');
+    if(tk){telegramToken=tk;document.getElementById('telegramToken').value=tk}
+    var ci=localStorage.getItem('telegramChatId');
+    if(ci){telegramChatId=ci;document.getElementById('telegramChatId').value=ci}
+    updateTransactionDisplay()
+}
 
-        function loadData() {
-            const stored = localStorage.getItem('gcashData');
-            if (stored) {
-                const data = JSON.parse(stored);
-                state.feeRanges = data.feeRanges || defaultFeeRanges;
-                state.billsFee = data.billsFee || 15;
-                state.loadFee = data.loadFee || 5;
-                state.savedPassword = data.password || 'admin123';
-                state.telegramBotToken = data.telegramBotToken || '';
-                state.telegramChatId = data.telegramChatId || '';
-                
-                const today = new Date().toDateString();
-                if (data.lastDate === today) {
-                    state.dailyTotal = data.dailyTotal || 0;
-                    state.transactions = data.transactions || [];
-                    if (data.initialized) {
-                        state.initialized = true;
-                        state.cashFund = data.cashFund || 0;
-                        state.digitalFund = data.digitalFund || 0;
-                    }
-                }
-            }
+function saveTransactions(){
+    localStorage.setItem('transactions',JSON.stringify(transactions))
+}
+
+function saveTelegramSettings(){
+    var tk=document.getElementById('telegramToken').value;
+    var ci=document.getElementById('telegramChatId').value;
+    localStorage.setItem('telegramToken',tk);
+    localStorage.setItem('telegramChatId',ci);
+    telegramToken=tk;
+    telegramChatId=ci
+}
+
+function calculateFee(a){
+    var n=parseFloat(a);
+    
+    // For amounts over 10,000
+    if(n > 10000){
+        // 1% of first 10,000 = 100
+        var baseFee = 100;
+        // Calculate fee for the remaining amount using the fee table
+        var remainder = n - 10000;
+        var remainderFee = 0;
+        
+        if(remainder<=500) remainderFee = 10;
+        else if(remainder<=1000) remainderFee = 15;
+        else if(remainder<=2000) remainderFee = 20;
+        else if(remainder<=3000) remainderFee = 30;
+        else if(remainder<=4000) remainderFee = 40;
+        else if(remainder<=5000) remainderFee = 50;
+        else if(remainder<=5500) remainderFee = 55;
+        else if(remainder<=6000) remainderFee = 60;
+        else if(remainder<=6500) remainderFee = 65;
+        else if(remainder<=7000) remainderFee = 70;
+        else if(remainder<=7500) remainderFee = 75;
+        else if(remainder<=8000) remainderFee = 80;
+        else if(remainder<=8500) remainderFee = 85;
+        else if(remainder<=9000) remainderFee = 90;
+        else if(remainder<=9500) remainderFee = 95;
+        else if(remainder<=10000) remainderFee = 100;
+        else remainderFee = remainder * 0.01; // If remainder also exceeds 10,000
+        
+        return baseFee + remainderFee;
+    }
+    
+    // For amounts up to 10,000, use the standard fee table
+    if(n<=500)return 10;
+    if(n<=1000)return 15;
+    if(n<=2000)return 20;
+    if(n<=3000)return 30;
+    if(n<=4000)return 40;
+    if(n<=5000)return 50;
+    if(n<=5500)return 55;
+    if(n<=6000)return 60;
+    if(n<=6500)return 65;
+    if(n<=7000)return 70;
+    if(n<=7500)return 75;
+    if(n<=8000)return 80;
+    if(n<=8500)return 85;
+    if(n<=9000)return 90;
+    if(n<=9500)return 95;
+    if(n<=10000)return 100;
+    
+    return 0;
+}
+
+function selectTransaction(t){
+    currentTransaction=t;
+    document.getElementById('transactionSelector').classList.add('hidden');
+    document.getElementById('transactionForm').classList.remove('hidden');
+    document.getElementById('transactionTitle').textContent=t;
+    
+    if(t==='STAFF ONLY'){
+        document.getElementById('amountGroup').classList.add('hidden');
+        document.getElementById('cashOutOptions').classList.add('hidden');
+        document.getElementById('staffFields').classList.remove('hidden');
+        document.getElementById('calculationBox').classList.add('hidden');
+        document.getElementById('tenderedGroup').classList.add('hidden');
+        document.getElementById('changeBox').classList.add('hidden')
+    }else{
+        document.getElementById('amountGroup').classList.remove('hidden');
+        document.getElementById('staffFields').classList.add('hidden');
+        document.getElementById('tenderedGroup').classList.remove('hidden');
+        
+        if(t==='CASH OUT'){
+            document.getElementById('cashOutOptions').classList.remove('hidden');
+            document.getElementById('tenderedLabel').textContent='💸 Amount Sent (PHP)'
+        }else{
+            document.getElementById('cashOutOptions').classList.add('hidden');
+            document.getElementById('tenderedLabel').textContent='💵 Amount Tendered (PHP)'
         }
+    }
+}
 
-        function saveData() {
-            if (state.initialized) {
-                const data = {
-                    feeRanges: state.feeRanges,
-                    billsFee: state.billsFee,
-                    loadFee: state.loadFee,
-                    password: state.savedPassword,
-                    telegramBotToken: state.telegramBotToken,
-                    telegramChatId: state.telegramChatId,
-                    dailyTotal: state.dailyTotal,
-                    transactions: state.transactions,
-                    cashFund: state.cashFund,
-                    digitalFund: state.digitalFund,
-                    initialized: state.initialized,
-                    lastDate: new Date().toDateString()
-                };
-                localStorage.setItem('gcashData', JSON.stringify(data));
-            }
+function resetTransaction(){
+    currentTransaction='';
+    currentTotal=0;
+    document.getElementById('transactionSelector').classList.remove('hidden');
+    document.getElementById('transactionForm').classList.add('hidden');
+    document.getElementById('amount').value='';
+    document.getElementById('tendered').value='';
+    document.getElementById('staffAmount').value='';
+    document.getElementById('staffName').value='';
+    document.getElementById('remarks').value='';
+    document.getElementById('calculationBox').classList.add('hidden');
+    document.getElementById('tenderedGroup').classList.add('hidden');
+    document.getElementById('changeBox').classList.add('hidden')
+}
+
+function updateCalculation(){
+    var a=document.getElementById('amount').value;
+    if(!a||currentTransaction==='STAFF ONLY')return;
+    var n=parseFloat(a);
+    var c=document.getElementById('calculationBox');
+    var h='<h3>💫 Calculation:</h3>';
+    
+    if(currentTransaction==='CASH IN'){
+        var f=calculateFee(n);
+        var t=n+f;
+        currentTotal=t;
+        h+='<p>💵 Amount: PHP '+n.toFixed(2)+'</p>';
+        h+='<p>📊 Fee: PHP '+f.toFixed(2)+'</p>';
+        h+='<p class="total">💰 Total: PHP '+t.toFixed(2)+'</p>'
+    }else if(currentTransaction==='CASH OUT'){
+        var f=calculateFee(n);
+        var o=document.getElementById('cashOutOption').value;
+        if(o==='add'){
+            var t=n+f;
+            currentTotal=t;
+            h+='<p>💸 Amount: PHP '+n.toFixed(2)+'</p>';
+            h+='<p>📊 Fee: PHP '+f.toFixed(2)+'</p>';
+            h+='<p class="total">💰 Total: PHP '+t.toFixed(2)+'</p>'
+        }else{
+            var r=n-f;
+            currentTotal=n;
+            h+='<p>💸 Amount: PHP '+n.toFixed(2)+'</p>';
+            h+='<p>📊 Fee: PHP '+f.toFixed(2)+' (Deducted)</p>';
+            h+='<p class="total">\n💰 Customer Receives: PHP '+r.toFixed(2)+'</p>'
         }
+    }else if(currentTransaction==='MOBILE LOAD'){
+        var f=5;
+        var t=n+f;
+        currentTotal=t;
+        h+='<p>📱 Load: PHP '+n.toFixed(2)+'</p>';
+        h+='<p>📊 Fee: PHP 5.00</p>';
+        h+='<p class="total">💰 Total: PHP '+t.toFixed(2)+'</p>'
+    }
+    
+    c.innerHTML=h;
+    c.classList.remove('hidden');
+    updateChange()
+}
 
-        function calculateFee(amt, type) {
-            const numAmt = parseFloat(amt);
-            if (isNaN(numAmt) || numAmt <= 0) return 0;
-            if (type === 'bills') return state.billsFee;
-            if (type === 'load') return state.loadFee;
-            if (numAmt > 10000) return numAmt * 0.01;
-            for (let range of state.feeRanges) {
-                if (numAmt >= range.min && numAmt <= range.max) return range.fee;
-            }
-            return 0;
+function updateChange(){
+    var t=parseFloat(document.getElementById('tendered').value);
+    if(!t||currentTransaction==='CASH OUT'||currentTransaction==='STAFF ONLY'){
+        document.getElementById('changeBox').classList.add('hidden');
+        return
+    }
+    
+    var change=t-currentTotal;
+    if(change>=0){
+        document.getElementById('changeAmount').textContent='PHP '+change.toFixed(2);
+        document.getElementById('changeBox').classList.remove('hidden')
+    }else{
+        document.getElementById('changeBox').classList.add('hidden')
+    }
+}
+
+function showNotification(msg){
+    var n=document.createElement('div');
+    n.className='notification';
+    n.textContent=msg;
+    document.body.appendChild(n);
+    setTimeout(function(){
+        n.style.opacity='0';
+        setTimeout(function(){document.body.removeChild(n)},500)
+    },3000)
+}
+
+function sendTelegramNotification(tx){
+    saveTelegramSettings();
+    if(!telegramToken||!telegramChatId){return}
+    
+    var emoji='';
+    if(tx.type==='CASH IN')emoji='💵';
+    else if(tx.type==='CASH OUT')emoji='💸';
+    else if(tx.type==='MOBILE LOAD')emoji='📱';
+    else if(tx.type==='STAFF ONLY')emoji='👤';
+    
+    // Compact format
+    var msg=emoji+' '+tx.type+'\n';
+    msg+='Amount: ₱'+tx.amount.toFixed(2)+'\nFee: ₱'+tx.fee.toFixed(2);
+    
+    if(tx.type==='CASH OUT' && tx.feeDeducted){
+        msg+=' (Deducted)\nReceives: ₱'+tx.received.toFixed(2);
+    }else{
+        msg+='\nTotal: ₱'+tx.total.toFixed(2);
+    }
+    
+    if(tx.type!=='CASH OUT' && tx.tendered>0){
+        msg+='\nTendered: ₱'+tx.tendered.toFixed(2)+'\nChange: ₱'+tx.change.toFixed(2);
+    }else if(tx.type==='CASH OUT' && tx.tendered>0){
+        msg+='\nAmount Sent: ₱'+tx.tendered.toFixed(2);
+    }
+    
+    if(tx.staffName){
+        msg+='\nStaff: '+tx.staffName;
+    }
+    
+    if(tx.remarks){
+        msg+='\nRemarks: '+tx.remarks;
+    }
+    
+    msg+='\n'+tx.timestamp;
+    
+    fetch('https://api.telegram.org/bot'+telegramToken+'/sendMessage',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+            chat_id:telegramChatId,
+            text:msg
+        })
+    }).then(function(rsp){
+        if(rsp.ok){console.log('Telegram sent')}
+    }).catch(function(err){
+        console.log('Telegram failed')
+    })
+}
+
+function submitTransaction(){
+    var n=parseFloat(document.getElementById('amount').value);
+    var td=parseFloat(document.getElementById('tendered').value)||0;
+    var sa=parseFloat(document.getElementById('staffAmount').value);
+    var s=document.getElementById('staffName').value;
+    var r=document.getElementById('remarks').value;
+    var o=document.getElementById('cashOutOption').value;
+    
+    if(currentTransaction!=='STAFF ONLY'&&!n){
+        alert('Please enter an amount');
+        return
+    }
+    
+    if(currentTransaction==='STAFF ONLY'&&(!sa||!s||!r)){
+        alert('Please enter amount, staff name and remarks');
+        return
+    }
+    
+    if(currentTransaction!=='STAFF ONLY'&&currentTransaction!=='CASH OUT'&&td>0&&td<currentTotal){
+        alert('Insufficient amount tendered');
+        return
+    }
+    
+    var f=0,t=0,rc=0,ch=0,d='',fd=false;
+    
+    if(currentTransaction==='CASH IN'){
+        f=calculateFee(n);
+        t=n+f;
+        ch=td>0?td-t:0;
+        d='Amount: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+'\nTotal: PHP '+t.toFixed(2)
+    }else if(currentTransaction==='CASH OUT'){
+        f=calculateFee(n);
+        if(o==='add'){
+            t=n+f;
+            rc=n;
+            d='Amount: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+'\nTotal: PHP '+t.toFixed(2)
+        }else{
+            t=n;
+            rc=n-f;
+            fd=true;
+            d='Amount: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+' (Deducted)\nReceives: PHP '+rc.toFixed(2)
         }
+    }else if(currentTransaction==='MOBILE LOAD'){
+        f=5;
+        t=n+f;
+        ch=td>0?td-t:0;
+        d='Load: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+'\nTotal: PHP '+t.toFixed(2)
+    }else if(currentTransaction==='STAFF ONLY'){
+        d='Amount: PHP '+sa.toFixed(2)+'\nStaff: '+s+'\nRemarks: '+r;
+        n=sa
+    }
+    
+    var tx={
+        id:Date.now(),
+        type:currentTransaction,
+        amount:n||0,
+        fee:f,
+        total:t,
+        received:rc,
+        tendered:td,
+        change:ch,
+        feeDeducted:fd,
+        details:d,
+        timestamp:new Date().toLocaleString(),
+        staffName:s||'',
+        remarks:r||''
+    };
+    
+    transactions.unshift(tx);
+    saveTransactions();
+    sendTelegramNotification(tx);
+    updateTransactionDisplay();
+    resetTransaction();
+    showNotification('✅ Transaction submitted successfully!')
+}
 
-        async function sendTelegram(message) {
-            if (!state.telegramBotToken || !state.telegramChatId) return;
-            try {
-                await fetch('https://api.telegram.org/bot' + state.telegramBotToken + '/sendMessage', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: state.telegramChatId, text: message, parse_mode: 'HTML' })
-                });
-            } catch (e) {}
+function updateTransactionDisplay(){
+    var l=document.getElementById('transactionsList');
+    var rd=document.getElementById('recentTransactions');
+    
+    if(transactions.length===0){
+        rd.classList.add('hidden');
+        return
+    }
+    
+    rd.classList.remove('hidden');
+    var rc=transactions.slice(0,5);
+    var h='';
+    
+    for(var i=0;i<rc.length;i++){
+        var tx=rc[i];
+        h+='<div class="transaction-item">';
+        h+='<span class="type">'+tx.type+'</span>';
+        h+='<span class="timestamp">'+tx.timestamp+'</span>';
+        h+='<div class="details">'+tx.details+'</div>';
+        h+='</div>'
+    }
+    
+    l.innerHTML=h;
+    
+    var ab=document.getElementById('adminTableBody');
+    if(ab){
+        var th='';
+        for(var j=0;j<transactions.length;j++){
+            var tx=transactions[j];
+            th+='<tr>';
+            th+='<td style="font-size: 12px;">'+tx.timestamp+'</td>';
+            th+='<td><span class="type">'+tx.type+'</span></td>';
+            th+='<td style="font-size: 14px;">'+tx.details+'</td>';
+            th+='</tr>'
         }
+        ab.innerHTML=th
+    }
+    
+    document.getElementById('transactionCount').textContent=transactions.length
+}
 
-        function render() {
-            const app = document.getElementById('app');
-            
-            if (!state.initialized) {
-                app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"><div class="text-center mb-6"><div class="text-6xl mb-4">💰</div><h1 class="text-3xl font-bold text-gray-800">GCash Fee Calculator</h1><p class="text-gray-600 mt-2">Initialize your funds to begin</p></div><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Initial Cash Fund (₱)</label><input id="initialCash" type="number" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Initial Digital Fund (₱)</label><input id="initialDigital" type="number" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div><button onclick="handleInitialize()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Start Using App</button></div></div></div>';
-                return;
-            }
+function showAdminLogin(){
+    document.getElementById('mainView').classList.add('hidden');
+    document.getElementById('adminLoginView').classList.remove('hidden')
+}
 
-            if (state.showAdjustFunds) {
-                app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"><div class="text-center mb-6"><div class="text-4xl mb-4">💰</div><h1 class="text-2xl font-bold text-gray-800">Adjust Funds</h1></div><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Cash Fund (₱)</label><input id="adjustCash" type="number" value="' + state.cashFund + '" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Digital Fund (₱)</label><input id="adjustDigital" type="number" value="' + state.digitalFund + '" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" /></div><div class="flex gap-2"><button onclick="handleAdjustFunds()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Save</button><button onclick="state.showAdjustFunds=false;render()" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400">Cancel</button></div></div></div></div>';
-                return;
-            }
+function hideAdminLogin(){
+    document.getElementById('mainView').classList.remove('hidden');
+    document.getElementById('adminLoginView').classList.add('hidden')
+}
 
-            if (state.showAdmin && !state.isAdminAuth) {
-                app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"><div class="text-center mb-6"><div class="text-6xl mb-4">🔒</div><h1 class="text-2xl font-bold text-gray-800">Admin Access</h1></div><div class="space-y-4"><input id="adminPass" type="password" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Enter admin password" onkeypress="if(event.key===\'Enter\')handleAdminLogin()" /><div class="flex gap-2"><button onclick="handleAdminLogin()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Login</button><button onclick="state.showAdmin=false;render()" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400">Cancel</button></div></div></div></div>';
-                return;
-            }
+function handleLoginEnter(e){
+    if(e.key==='Enter'){adminLogin()}
+}
 
-            if (state.showAdmin && state.isAdminAuth) {
-                let rangesHTML = '';
-                if (state.editingRanges) {
-                    state.tempRanges.forEach((r, i) => {
-                        rangesHTML += '<div class="flex gap-2 items-center bg-gray-50 p-2 rounded"><input type="number" value="' + r.min + '" onchange="state.tempRanges[' + i + '].min=parseFloat(this.value)||0;render()" class="w-24 px-2 py-1 border rounded text-sm" /><span>-</span><input type="number" value="' + r.max + '" onchange="state.tempRanges[' + i + '].max=parseFloat(this.value)||0;render()" class="w-24 px-2 py-1 border rounded text-sm" /><span>=</span><input type="number" value="' + r.fee + '" onchange="state.tempRanges[' + i + '].fee=parseFloat(this.value)||0;render()" class="w-24 px-2 py-1 border rounded text-sm" /><button onclick="state.tempRanges.splice(' + i + ',1);render()" class="text-red-600">×</button></div>';
-                    });
-                    rangesHTML += '<button onclick="state.tempRanges.push({min:0,max:0,fee:0});render()" class="w-full py-2 border-2 border-dashed border-gray-300 rounded text-gray-600 hover:border-blue-500">+ Add Range</button>';
-                } else {
-                    state.feeRanges.forEach(r => {
-                        rangesHTML += '<div class="text-sm">₱' + r.min.toLocaleString() + ' - ₱' + r.max.toLocaleString() + ' = ₱' + r.fee + '</div>';
-                    });
-                    rangesHTML += '<div class="text-sm text-gray-600 pt-2 border-t">₱10,001 and up = +1%</div>';
-                }
+function adminLogin(){
+    var p=document.getElementById('adminPassword').value;
+    if(p==='admin123'){
+        document.getElementById('adminLoginView').classList.add('hidden');
+        document.getElementById('adminPanelView').classList.remove('hidden');
+        updateTransactionDisplay();
+        document.getElementById('adminPassword').value=''
+    }else{
+        alert('Incorrect password')
+    }
+}
 
-                app.innerHTML = '<div class="min-h-screen bg-gray-100 p-4"><div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6"><div class="flex justify-between items-center mb-6"><h1 class="text-2xl font-bold text-gray-800">Admin Settings</h1><button onclick="state.showAdmin=false;state.isAdminAuth=false;render()" class="text-gray-600 hover:text-gray-800 text-3xl">×</button></div><div class="space-y-6"><div><label class="block text-sm font-medium text-gray-700 mb-2">Change Admin Password</label><input type="password" value="' + state.savedPassword + '" onchange="state.savedPassword=this.value" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Telegram Bot Token</label><input type="text" value="' + state.telegramBotToken + '" onchange="state.telegramBotToken=this.value" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Enter your bot token" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Telegram Chat ID</label><input type="text" value="' + state.telegramChatId + '" onchange="state.telegramChatId=this.value" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="Enter your chat ID" /></div><div><div class="flex justify-between items-center mb-2"><label class="text-sm font-medium text-gray-700">Fee Ranges</label>' + (!state.editingRanges ? '<button onclick="state.tempRanges=JSON.parse(JSON.stringify(state.feeRanges));state.editingRanges=true;render()" class="text-blue-600 hover:text-blue-700">✏️ Edit</button>' : '') + '</div><div class="space-y-2 max-h-96 overflow-y-auto">' + rangesHTML + '</div></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Bills Fee (₱)</label><input type="number" value="' + state.billsFee + '" onchange="state.billsFee=parseFloat(this.value)||0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Load Fee (₱)</label><input type="number" value="' + state.loadFee + '" onchange="state.loadFee=parseFloat(this.value)||0" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none" /></div></div><button onclick="handleSaveSettings()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">💾 Save Settings</button><div class="pt-4 border-t mt-4"><h3 class="text-lg font-bold text-gray-800 mb-3">Reset Options</h3><button onclick="handleResetDay()" class="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 mb-2">🔄 Reset for New Day</button><button onclick="handleResetAll()" class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700">🗑️ Clear All Data</button></div></div></div></div>';
-                return;
-            }
+function logoutAdmin(){
+    document.getElementById('adminPanelView').classList.add('hidden');
+    document.getElementById('mainView').classList.remove('hidden')
+}
 
-            const currentFee = state.amount ? (state.transactionType === 'bills' ? state.billsFee : state.transactionType === 'load' ? state.loadFee : (state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(state.amount, state.transactionType))) : 0;
-            let total = state.amount ? parseFloat(state.amount) + currentFee : 0;
-            let amountToReceive = 0;
-            
-            // For cash out with deduct fee option, calculate amount to receive
-            if (state.transactionType === 'cashout' && state.deductFeeFromAmount && state.amount) {
-                amountToReceive = parseFloat(state.amount) - currentFee;
-                total = parseFloat(state.amount); // Total is just the amount entered
-            }
-            
-            const amt = parseFloat(state.amount);
-            const tend = parseFloat(state.tendered);
-            let changeTotal = 0;
-            if (!isNaN(amt) && !isNaN(tend)) {
-                let t = amt;
-                if (state.transactionType === 'bills') t += state.billsFee;
-                else if (state.transactionType === 'load') t += state.loadFee;
-                else if (state.transactionType === 'cashout' && state.deductFeeFromAmount) {
-                    // For deduct fee option, customer only receives amount minus fee
-                    t = amountToReceive;
-                } else {
-                    t += (state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(state.amount, state.transactionType));
-                }
-                changeTotal = tend - t;
-            }
+function exportCSV(){
+    var h=['Timestamp','Type','Amount','Fee','Total','Tendered','Change','Details'];
+    var rs=[];
+    
+    for(var i=0;i<transactions.length;i++){
+        var tx=transactions[i];
+        var dc=tx.details.replace(/,/g,';');
+        rs.push([tx.timestamp,tx.type,tx.amount,tx.fee,tx.total,tx.tendered||0,tx.change||0,dc])
+    }
+    
+    var csv=h.join(',')+'\n';
+    for(var j=0;j<rs.length;j++){
+        csv+=rs[j].join(',')+'\n'
+    }
+    
+    var b=new Blob([csv],{type:'text/csv'});
+    var u=window.URL.createObjectURL(b);
+    var a=document.createElement('a');
+    a.href=u;
+    var ds=new Date().toISOString().split('T')[0];
+    a.download='transactions_'+ds+'.csv';
+    a.click();
+    showNotification('📥 CSV exported successfully!')
+}
 
-            let transHTML = '';
-            if (state.transactions.length === 0) {
-                transHTML = '<div class="text-center text-gray-500 py-8">No transactions yet</div>';
-            } else {
-                state.transactions.forEach(t => {
-                    transHTML += '<div class="bg-gray-50 p-4 rounded-lg flex justify-between items-center"><div><div class="font-semibold text-gray-800">' + t.description + '</div><div class="text-sm text-gray-600">' + t.timestamp + '</div></div><div class="text-right"><div class="font-bold text-blue-600">Fee: ₱' + t.fee.toFixed(2) + '</div></div></div>';
-                });
-            }
-
-            app.innerHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 p-4"><div class="max-w-7xl mx-auto flex gap-4"><div class="w-80 flex-shrink-0"><div class="bg-white rounded-2xl shadow-2xl p-6 mb-4"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-bold text-gray-800">Funds</h2><button onclick="state.showAdmin=true;render()" class="text-gray-600 hover:text-gray-800 text-2xl">⚙️</button></div><div class="space-y-3"><div class="bg-green-100 p-4 rounded-lg cursor-pointer hover:bg-green-200" onclick="showAdjustFunds()"><div class="text-sm text-green-800 font-medium">Cash Fund</div><div class="text-xl font-bold text-green-900">₱' + state.cashFund.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div><div class="text-xs text-green-700 mt-1">Click to adjust</div></div><div class="bg-blue-100 p-4 rounded-lg cursor-pointer hover:bg-blue-200" onclick="showAdjustFunds()"><div class="text-sm text-blue-800 font-medium">Digital Fund</div><div class="text-xl font-bold text-blue-900">₱' + state.digitalFund.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div><div class="text-xs text-blue-700 mt-1">Click to adjust</div></div><div class="bg-purple-100 p-4 rounded-lg"><div class="text-sm text-purple-800 font-medium">Daily Fee Total</div><div class="text-xl font-bold text-purple-900">₱' + state.dailyTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div></div></div></div><div class="bg-white rounded-2xl shadow-2xl p-6"><h2 class="text-lg font-bold text-gray-800 mb-3">Transaction Type</h2><div class="space-y-2"><button onclick="state.transactionType=\'cashin\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'cashin' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">⬇️</span><span>Cash In</span></button><button onclick="state.transactionType=\'cashout\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'cashout' ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">⬆️</span><span>Cash Out</span></button><button onclick="state.transactionType=\'bills\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'bills' ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">📄</span><span>Bills Payment</span></button><button onclick="state.transactionType=\'load\';render()" class="w-full p-4 rounded-lg font-semibold text-left flex items-center gap-2 ' + (state.transactionType === 'load' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700') + '"><span class="text-2xl">📱</span><span>Load</span></button></div></div></div><div class="flex-1"><div class="bg-white rounded-2xl shadow-2xl p-6 mb-4"><h1 class="text-3xl font-bold text-gray-800 mb-6">🧮 Sir Ramos Drugstore&apos;s GCash Hub</h1><div class="grid grid-cols-2 gap-4 mb-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Amount (₱)</label><input id="amount" type="number" value="' + state.amount + '" onchange="state.amount=this.value;render()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Tendered (₱)</label><input id="tendered" type="number" value="' + state.tendered + '" onchange="state.tendered=this.value;render()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div>' + ((state.transactionType === 'cashin' || state.transactionType === 'cashout') ? '<div class="flex items-center gap-2"><input type="checkbox" ' + (state.useDiscount ? 'checked' : '') + ' onchange="state.useDiscount=this.checked;render()" class="w-5 h-5" /><label class="text-sm font-medium text-gray-700">Use Discounted Fee</label></div>' + (state.useDiscount ? '<div><label class="block text-sm font-medium text-gray-700 mb-2">Discounted Fee (₱)</label><input type="number" value="' + state.discountedFee + '" onchange="state.discountedFee=this.value;render()" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg" placeholder="0.00" /></div>' : '') : '') + (state.transactionType === 'cashout' ? '<div class="flex items-center gap-2"><input type="checkbox" ' + (state.deductFeeFromAmount ? 'checked' : '') + ' onchange="state.deductFeeFromAmount=this.checked;render()" class="w-5 h-5" /><label class="text-sm font-medium text-gray-700">Deduct fee from amount to receive</label></div>' : '') + '</div><div class="bg-gray-100 p-4 rounded-lg mb-4 space-y-2"><div class="flex justify-between text-lg"><span class="font-medium">Transaction Fee:</span><span class="font-bold text-blue-600">₱' + currentFee.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' + (state.transactionType === 'cashout' && state.deductFeeFromAmount && state.amount ? '<div class="flex justify-between text-lg"><span class="font-medium">Amount to Receive:</span><span class="font-bold text-green-600">₱' + amountToReceive.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' : '') + '<div class="flex justify-between text-lg"><span class="font-medium">Total:</span><span class="font-bold">₱' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' + (state.tendered ? '<div class="flex justify-between text-xl pt-2 border-t-2 border-gray-300"><span class="font-bold">Change:</span><span class="font-bold ' + (changeTotal >= 0 ? 'text-green-600' : 'text-red-600') + '">₱' + changeTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</span></div>' : '') + '</div><button onclick="handleTransaction()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700">Process Transaction</button></div><div class="bg-white rounded-2xl shadow-2xl p-6"><h2 class="text-xl font-bold text-gray-800 mb-4">Transaction History</h2><div class="space-y-2 max-h-96 overflow-y-auto">' + transHTML + '</div></div></div></div></div>';
+function sendAllTelegram(){
+    saveTelegramSettings();
+    var tk=document.getElementById('telegramToken').value;
+    var ci=document.getElementById('telegramChatId').value;
+    
+    if(!tk||!ci){
+        alert('Please set Telegram Bot Token and Chat ID');
+        return
+    }
+    
+    var ms=[];
+    var lm=Math.min(10,transactions.length);
+    
+    for(var i=0;i<lm;i++){
+        var tx=transactions[i];
+        var emoji='';
+        if(tx.type==='CASH IN')emoji='💵';
+        else if(tx.type==='CASH OUT')emoji='💸';
+        else if(tx.type==='MOBILE LOAD')emoji='📱';
+        else if(tx.type==='STAFF ONLY')emoji='👤';
+        
+        var mg=emoji+' '+tx.type+' | ₱'+tx.total.toFixed(2)+'\n'+tx.timestamp;
+        ms.push(mg)
+    }
+    
+    var m='📊 TRANSACTION REPORT\n\n'+ms.join('\n\n')+'\n\nTotal: '+transactions.length+' transactions';
+    
+    fetch('https://api.telegram.org/bot'+tk+'/sendMessage',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+            chat_id:ci,
+            text:m
+        })
+    }).then(function(rsp){
+        if(rsp.ok){
+            showNotification('📤 Sent to Telegram successfully!')
+        }else{
+            alert('Failed to send to Telegram')
         }
+    }).catch(function(err){
+        alert('Failed to send to Telegram')
+    })
+}
 
-        function handleInitialize() {
-            const cash = parseFloat(document.getElementById('initialCash').value);
-            const digital = parseFloat(document.getElementById('initialDigital').value);
-            if (isNaN(cash) || isNaN(digital) || cash < 0 || digital < 0) {
-                alert('Please enter valid amounts');
-                return;
-            }
-            state.cashFund = cash;
-            state.digitalFund = digital;
-            state.initialized = true;
-            saveData();
-            render();
-        }
+function clearLog(){
+    if(confirm('Are you sure you want to clear all transactions?')){
+        transactions=[];
+        saveTransactions();
+        updateTransactionDisplay();
+        showNotification('🗑️ Transaction log cleared!')
+    }
+}
 
-        function handleTransaction() {
-            const amt = parseFloat(state.amount);
-            if (isNaN(amt) || amt <= 0) {
-                alert('Please enter a valid amount');
-                return;
-            }
-
-            let fee = 0, newCash = state.cashFund, newDigital = state.digitalFund, description = '';
-
-            if (state.transactionType === 'cashin') {
-                fee = state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(amt, 'cashin');
-                if (state.digitalFund < amt) { alert('Insufficient digital fund'); return; }
-                newDigital -= amt;
-                newCash += amt;
-                description = 'Cash In: ₱' + amt.toFixed(2);
-            } else if (state.transactionType === 'cashout') {
-                fee = state.useDiscount && state.discountedFee ? parseFloat(state.discountedFee) : calculateFee(amt, 'cashout');
-                
-                if (state.deductFeeFromAmount) {
-                    // Fee is deducted from amount - customer receives (amount - fee)
-                    const amountToReceive = amt - fee;
-                    if (amountToReceive <= 0) { alert('Fee exceeds amount. Please enter a larger amount.'); return; }
-                    if (state.cashFund < amountToReceive) { alert('Insufficient cash fund'); return; }
-                    newCash -= amountToReceive;
-                    newDigital += amt;
-                    description = 'Cash Out: ₱' + amt.toFixed(2) + ' (Received: ₱' + amountToReceive.toFixed(2) + ')';
-                } else {
-                    // Traditional cash out - customer pays amount, fee is separate
-                    if (state.cashFund < amt) { alert('Insufficient cash fund'); return; }
-                    newCash -= amt;
-                    newDigital += amt;
-                    description = 'Cash Out: ₱' + amt.toFixed(2);
-                }
-            } else if (state.transactionType === 'bills') {
-                fee = calculateFee(amt, 'bills');
-                if (state.cashFund < (amt + fee)) { alert('Insufficient cash fund'); return; }
-                newCash -= (amt + fee);
-                description = 'Bills Payment: ₱' + amt.toFixed(2);
-            } else if (state.transactionType === 'load') {
-                fee = calculateFee(amt, 'load');
-                if (state.cashFund < (amt + fee)) { alert('Insufficient cash fund'); return; }
-                newCash -= (amt + fee);
-                description = 'Load: ₱' + amt.toFixed(2);
-            }
-
-            state.cashFund = newCash;
-            state.digitalFund = newDigital;
-            state.dailyTotal += fee;
-            state.transactions.unshift({
-                type: state.transactionType,
-                amount: amt,
-                fee: fee,
-                timestamp: new Date().toLocaleString(),
-                description
-            });
-
-            sendTelegram('<b>New Transaction</b>\n' + description + '\nFee: ₱' + fee.toFixed(2) + '\nCash Fund: ₱' + newCash.toFixed(2) + '\nDigital Fund: ₱' + newDigital.toFixed(2) + '\nDaily Total Fees: ₱' + state.dailyTotal.toFixed(2));
-
-            state.amount = '';
-            state.discountedFee = '';
-            state.useDiscount = false;
-            state.deductFeeFromAmount = false;
-            state.tendered = '';
-            saveData();
-            render();
-        }
-
-        function handleAdminLogin() {
-            const pass = document.getElementById('adminPass').value;
-            if (pass === state.savedPassword) {
-                state.isAdminAuth = true;
-                state.adminPassword = '';
-                render();
-            } else {
-                alert('Incorrect password');
-            }
-        }
-
-        function handleSaveSettings() {
-            if (state.editingRanges) {
-                state.feeRanges = state.tempRanges;
-                state.editingRanges = false;
-            }
-            saveData();
-            alert('Settings saved successfully');
-            render();
-        }
-
-        function handleResetDay() {
-            if (confirm('Reset for a new day? This will:\n- Clear daily fee total\n- Clear transaction history\n- Ask for new initial funds\n\nSettings will be kept.')) {
-                state.initialized = false;
-                state.cashFund = 0;
-                state.digitalFund = 0;
-                state.dailyTotal = 0;
-                state.transactions = [];
-                state.amount = '';
-                state.discountedFee = '';
-                state.useDiscount = false;
-                state.tendered = '';
-                localStorage.removeItem('gcashData');
-                const settingsData = {
-                    feeRanges: state.feeRanges,
-                    billsFee: state.billsFee,
-                    loadFee: state.loadFee,
-                    password: state.savedPassword,
-                    telegramBotToken: state.telegramBotToken,
-                    telegramChatId: state.telegramChatId
-                };
-                localStorage.setItem('gcashData', JSON.stringify(settingsData));
-                state.showAdmin = false;
-                state.isAdminAuth = false;
-                render();
-            }
-        }
-
-        function handleResetAll() {
-            if (confirm('Clear ALL data? This will reset everything including settings!\n\nThis cannot be undone.')) {
-                localStorage.removeItem('gcashData');
-                state.initialized = false;
-                state.cashFund = 0;
-                state.digitalFund = 0;
-                state.dailyTotal = 0;
-                state.transactions = [];
-                state.amount = '';
-                state.discountedFee = '';
-                state.useDiscount = false;
-                state.tendered = '';
-                state.showAdmin = false;
-                state.isAdminAuth = false;
-                state.savedPassword = 'admin123';
-                state.feeRanges = [...defaultFeeRanges];
-                state.billsFee = 15;
-                state.loadFee = 5;
-                state.telegramBotToken = '';
-                state.telegramChatId = '';
-                render();
-            }
-        }
-
-        function showAdjustFunds() {
-            state.showAdjustFunds = true;
-            render();
-        }
-
-        function handleAdjustFunds() {
-            const cash = parseFloat(document.getElementById('adjustCash').value);
-            const digital = parseFloat(document.getElementById('adjustDigital').value);
-            if (isNaN(cash) || isNaN(digital) || cash < 0 || digital < 0) {
-                alert('Please enter valid amounts');
-                return;
-            }
-            state.cashFund = cash;
-            state.digitalFund = digital;
-            state.showAdjustFunds = false;
-            saveData();
-            render();
-        }
-
-        loadData();
-        render();
+loadTransactions();
     </script>
 </body>
-
 </html>
-
-
