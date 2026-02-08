@@ -122,6 +122,11 @@
             color: white;
         }
 
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
         .transaction-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -243,6 +248,48 @@
             border-top: 2px solid rgba(255, 255, 255, 0.3);
         }
 
+        .daily-fee-box {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .daily-fee-box h3 {
+            margin-bottom: 15px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .daily-fee-box .total {
+            font-size: 48px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .daily-fee-box .breakdown {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .daily-fee-box .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
         .transaction-history {
             margin-top: 30px;
         }
@@ -338,6 +385,10 @@
             animation: slideInRight 0.5s ease-out;
         }
 
+        .notification.error {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
         @keyframes slideInRight {
             from {
                 opacity: 0;
@@ -347,6 +398,27 @@
                 opacity: 1;
                 transform: translateX(0);
             }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -440,7 +512,7 @@
             </div>
             <button class="btn btn-primary" style="width: 100%;" onclick="adminLogin()">🔓 Login</button>
             <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="hideAdminLogin()">← Back</button>
-            <p style="text-align: center; margin-top: 15px; color: #6b7280; font-size: 12px;">AUTHORIZED PERSONEL ONLY</p>
+            <p style="text-align: center; margin-top: 15px; color: #6b7280; font-size: 12px;">AUTHORIZED PERSONNEL ONLY</p>
         </div>
         <div id="adminPanelView" class="hidden">
             <div class="card">
@@ -448,6 +520,31 @@
                     <h2>⚙️ Admin Panel</h2>
                     <button class="btn btn-secondary" onclick="logoutAdmin()">🚪 Logout</button>
                 </div>
+                
+                <!-- Daily Fee Summary -->
+                <div id="dailyFeeSummary" class="daily-fee-box">
+                    <h3>📅 Today's Fee Collection</h3>
+                    <p class="total" id="dailyTotalFee">PHP 0.00</p>
+                    <div class="breakdown">
+                        <div class="breakdown-item">
+                            <span>💵 Cash In Fees:</span>
+                            <span id="dailyCashInFee">PHP 0.00</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>💸 Cash Out Fees:</span>
+                            <span id="dailyCashOutFee">PHP 0.00</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>📱 Mobile Load Fees:</span>
+                            <span id="dailyMobileLoadFee">PHP 0.00</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span>📊 Total Transactions:</span>
+                            <span id="dailyTransactionCount">0</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="grid-2 mb-20">
                     <div class="form-group">
                         <label>🤖 Telegram Bot Token</label>
@@ -459,6 +556,7 @@
                     </div>
                 </div>
                 <div class="admin-controls">
+                    <button class="btn btn-warning" onclick="calculateDailyFees()">📊 Refresh Daily Fees</button>
                     <button class="btn btn-success" onclick="exportCSV()">📥 Export CSV</button>
                     <button class="btn btn-info" onclick="sendAllTelegram()">📤 Send All to Telegram</button>
                     <button class="btn btn-danger" onclick="clearLog()">🗑️ Clear Log</button>
@@ -472,480 +570,631 @@
             </div>
         </div>
     </div>
+
+    <!-- Firebase SDK - Using Compatibility Version -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
     <script>
-var transactions=[];
-var currentTransaction='';
-var telegramToken='';
-var telegramChatId='';
-var currentTotal=0;
+// ============================================
+// FIREBASE INITIALIZATION
+// ============================================
+const firebaseConfig = {
+    apiKey: "AIzaSyCbuUi0EugFYIyzscDR8zpjLGnDSfcJiYY",
+    authDomain: "srdsgcashhub.firebaseapp.com",
+    databaseURL: "https://srdsgcashhub-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "srdsgcashhub",
+    storageBucket: "srdsgcashhub.firebasestorage.app",
+    messagingSenderId: "1021824923788",
+    appId: "1:1021824923788:web:c170b4b788fc58e866e3a9",
+    measurementId: "G-YFK7EWZJXG"
+};
 
-function loadTransactions(){
-    var s=localStorage.getItem('transactions');
-    if(s){transactions=JSON.parse(s)}
-    var tk=localStorage.getItem('telegramToken');
-    if(tk){telegramToken=tk;document.getElementById('telegramToken').value=tk}
-    var ci=localStorage.getItem('telegramChatId');
-    if(ci){telegramChatId=ci;document.getElementById('telegramChatId').value=ci}
-    updateTransactionDisplay()
-}
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-function saveTransactions(){
-    localStorage.setItem('transactions',JSON.stringify(transactions))
-}
+// ============================================
+// GLOBAL VARIABLES
+// ============================================
+var transactions = [];
+var currentTransaction = '';
+var telegramToken = '';
+var telegramChatId = '';
+var currentTotal = 0;
+var isAdmin = false;
 
-function saveTelegramSettings(){
-    var tk=document.getElementById('telegramToken').value;
-    var ci=document.getElementById('telegramChatId').value;
-    localStorage.setItem('telegramToken',tk);
-    localStorage.setItem('telegramChatId',ci);
-    telegramToken=tk;
-    telegramChatId=ci
-}
-
-function calculateFee(a){
-    var n=parseFloat(a);
+// ============================================
+// FIREBASE DATA OPERATIONS
+// ============================================
+function loadTransactions() {
+    showNotification('📡 Loading data from Firebase...', 'info');
     
-    // For amounts over 10,000
-    if(n > 10000){
-        // 1% of first 10,000 = 100
+    // Load transactions
+    database.ref('transactions').once('value', function(snapshot) {
+        const data = snapshot.val();
+        if (data) {
+            transactions = Object.values(data).sort((a, b) => b.id - a.id);
+        }
+        updateTransactionDisplay();
+        showNotification('✅ Data loaded successfully!');
+    }).catch(function(error) {
+        console.error('Error loading transactions:', error);
+        showNotification('❌ Failed to load data', 'error');
+    });
+
+    // Load Telegram settings
+    database.ref('settings/telegram').once('value', function(snapshot) {
+        const data = snapshot.val();
+        if (data) {
+            telegramToken = data.token || '';
+            telegramChatId = data.chatId || '';
+            if (document.getElementById('telegramToken')) {
+                document.getElementById('telegramToken').value = telegramToken;
+            }
+            if (document.getElementById('telegramChatId')) {
+                document.getElementById('telegramChatId').value = telegramChatId;
+            }
+        }
+    });
+}
+
+function saveTransaction(transaction) {
+    return database.ref('transactions/' + transaction.id).set(transaction);
+}
+
+function saveTelegramSettings() {
+    const tk = document.getElementById('telegramToken').value;
+    const ci = document.getElementById('telegramChatId').value;
+    
+    telegramToken = tk;
+    telegramChatId = ci;
+    
+    return database.ref('settings/telegram').set({
+        token: tk,
+        chatId: ci
+    });
+}
+
+function clearAllTransactions() {
+    return database.ref('transactions').remove();
+}
+
+// ============================================
+// FEE CALCULATION
+// ============================================
+function calculateFee(a) {
+    var n = parseFloat(a);
+    
+    if (n > 10000) {
         var baseFee = 100;
-        // Calculate fee for the remaining amount using the fee table
         var remainder = n - 10000;
         var remainderFee = 0;
         
-        if(remainder<=500) remainderFee = 10;
-        else if(remainder<=1000) remainderFee = 15;
-        else if(remainder<=2000) remainderFee = 20;
-        else if(remainder<=3000) remainderFee = 30;
-        else if(remainder<=4000) remainderFee = 40;
-        else if(remainder<=5000) remainderFee = 50;
-        else if(remainder<=5500) remainderFee = 55;
-        else if(remainder<=6000) remainderFee = 60;
-        else if(remainder<=6500) remainderFee = 65;
-        else if(remainder<=7000) remainderFee = 70;
-        else if(remainder<=7500) remainderFee = 75;
-        else if(remainder<=8000) remainderFee = 80;
-        else if(remainder<=8500) remainderFee = 85;
-        else if(remainder<=9000) remainderFee = 90;
-        else if(remainder<=9500) remainderFee = 95;
-        else if(remainder<=10000) remainderFee = 100;
-        else remainderFee = remainder * 0.01; // If remainder also exceeds 10,000
+        if (remainder <= 500) remainderFee = 10;
+        else if (remainder <= 1000) remainderFee = 15;
+        else if (remainder <= 2000) remainderFee = 20;
+        else if (remainder <= 3000) remainderFee = 30;
+        else if (remainder <= 4000) remainderFee = 40;
+        else if (remainder <= 5000) remainderFee = 50;
+        else if (remainder <= 5500) remainderFee = 55;
+        else if (remainder <= 6000) remainderFee = 60;
+        else if (remainder <= 6500) remainderFee = 65;
+        else if (remainder <= 7000) remainderFee = 70;
+        else if (remainder <= 7500) remainderFee = 75;
+        else if (remainder <= 8000) remainderFee = 80;
+        else if (remainder <= 8500) remainderFee = 85;
+        else if (remainder <= 9000) remainderFee = 90;
+        else if (remainder <= 9500) remainderFee = 95;
+        else if (remainder <= 10000) remainderFee = 100;
+        else remainderFee = remainder * 0.01;
         
         return baseFee + remainderFee;
     }
     
-    // For amounts up to 10,000, use the standard fee table
-    if(n<=500)return 10;
-    if(n<=1000)return 15;
-    if(n<=2000)return 20;
-    if(n<=3000)return 30;
-    if(n<=4000)return 40;
-    if(n<=5000)return 50;
-    if(n<=5500)return 55;
-    if(n<=6000)return 60;
-    if(n<=6500)return 65;
-    if(n<=7000)return 70;
-    if(n<=7500)return 75;
-    if(n<=8000)return 80;
-    if(n<=8500)return 85;
-    if(n<=9000)return 90;
-    if(n<=9500)return 95;
-    if(n<=10000)return 100;
+    if (n <= 500) return 10;
+    if (n <= 1000) return 15;
+    if (n <= 2000) return 20;
+    if (n <= 3000) return 30;
+    if (n <= 4000) return 40;
+    if (n <= 5000) return 50;
+    if (n <= 5500) return 55;
+    if (n <= 6000) return 60;
+    if (n <= 6500) return 65;
+    if (n <= 7000) return 70;
+    if (n <= 7500) return 75;
+    if (n <= 8000) return 80;
+    if (n <= 8500) return 85;
+    if (n <= 9000) return 90;
+    if (n <= 9500) return 95;
+    if (n <= 10000) return 100;
     
     return 0;
 }
 
-function selectTransaction(t){
-    currentTransaction=t;
+// ============================================
+// DAILY FEE CALCULATION
+// ============================================
+function calculateDailyFees() {
+    const today = new Date().toLocaleDateString();
+    
+    let totalFee = 0;
+    let cashInFee = 0;
+    let cashOutFee = 0;
+    let mobileLoadFee = 0;
+    let transactionCount = 0;
+    
+    transactions.forEach(function(tx) {
+        const txDate = new Date(tx.timestamp).toLocaleDateString();
+        
+        if (txDate === today && tx.type !== 'STAFF ONLY') {
+            totalFee += tx.fee;
+            transactionCount++;
+            
+            if (tx.type === 'CASH IN') {
+                cashInFee += tx.fee;
+            } else if (tx.type === 'CASH OUT') {
+                cashOutFee += tx.fee;
+            } else if (tx.type === 'MOBILE LOAD') {
+                mobileLoadFee += tx.fee;
+            }
+        }
+    });
+    
+    // Update display
+    document.getElementById('dailyTotalFee').textContent = 'PHP ' + totalFee.toFixed(2);
+    document.getElementById('dailyCashInFee').textContent = 'PHP ' + cashInFee.toFixed(2);
+    document.getElementById('dailyCashOutFee').textContent = 'PHP ' + cashOutFee.toFixed(2);
+    document.getElementById('dailyMobileLoadFee').textContent = 'PHP ' + mobileLoadFee.toFixed(2);
+    document.getElementById('dailyTransactionCount').textContent = transactionCount;
+    
+    showNotification('📊 Daily fees refreshed!');
+}
+
+// ============================================
+// TRANSACTION MANAGEMENT
+// ============================================
+function selectTransaction(t) {
+    currentTransaction = t;
     document.getElementById('transactionSelector').classList.add('hidden');
     document.getElementById('transactionForm').classList.remove('hidden');
-    document.getElementById('transactionTitle').textContent=t;
+    document.getElementById('transactionTitle').textContent = t;
     
-    if(t==='STAFF ONLY'){
+    if (t === 'STAFF ONLY') {
         document.getElementById('amountGroup').classList.add('hidden');
         document.getElementById('cashOutOptions').classList.add('hidden');
         document.getElementById('staffFields').classList.remove('hidden');
         document.getElementById('calculationBox').classList.add('hidden');
         document.getElementById('tenderedGroup').classList.add('hidden');
-        document.getElementById('changeBox').classList.add('hidden')
-    }else{
+        document.getElementById('changeBox').classList.add('hidden');
+    } else {
         document.getElementById('amountGroup').classList.remove('hidden');
         document.getElementById('staffFields').classList.add('hidden');
         document.getElementById('tenderedGroup').classList.remove('hidden');
         
-        if(t==='CASH OUT'){
+        if (t === 'CASH OUT') {
             document.getElementById('cashOutOptions').classList.remove('hidden');
-            document.getElementById('tenderedLabel').textContent='💸 Amount Sent (PHP)'
-        }else{
+            document.getElementById('tenderedLabel').textContent = '💸 Amount Sent (PHP)';
+        } else {
             document.getElementById('cashOutOptions').classList.add('hidden');
-            document.getElementById('tenderedLabel').textContent='💵 Amount Tendered (PHP)'
+            document.getElementById('tenderedLabel').textContent = '💵 Amount Tendered (PHP)';
         }
     }
 }
 
-function resetTransaction(){
-    currentTransaction='';
-    currentTotal=0;
+function resetTransaction() {
+    currentTransaction = '';
+    currentTotal = 0;
     document.getElementById('transactionSelector').classList.remove('hidden');
     document.getElementById('transactionForm').classList.add('hidden');
-    document.getElementById('amount').value='';
-    document.getElementById('tendered').value='';
-    document.getElementById('staffAmount').value='';
-    document.getElementById('staffName').value='';
-    document.getElementById('remarks').value='';
+    document.getElementById('amount').value = '';
+    document.getElementById('tendered').value = '';
+    document.getElementById('staffAmount').value = '';
+    document.getElementById('staffName').value = '';
+    document.getElementById('remarks').value = '';
     document.getElementById('calculationBox').classList.add('hidden');
     document.getElementById('tenderedGroup').classList.add('hidden');
-    document.getElementById('changeBox').classList.add('hidden')
+    document.getElementById('changeBox').classList.add('hidden');
 }
 
-function updateCalculation(){
-    var a=document.getElementById('amount').value;
-    if(!a||currentTransaction==='STAFF ONLY')return;
-    var n=parseFloat(a);
-    var c=document.getElementById('calculationBox');
-    var h='<h3>💫 Calculation:</h3>';
+function updateCalculation() {
+    var a = document.getElementById('amount').value;
+    if (!a || currentTransaction === 'STAFF ONLY') return;
+    var n = parseFloat(a);
+    var c = document.getElementById('calculationBox');
+    var h = '<h3>💫 Calculation:</h3>';
     
-    if(currentTransaction==='CASH IN'){
-        var f=calculateFee(n);
-        var t=n+f;
-        currentTotal=t;
-        h+='<p>💵 Amount: PHP '+n.toFixed(2)+'</p>';
-        h+='<p>📊 Fee: PHP '+f.toFixed(2)+'</p>';
-        h+='<p class="total">💰 Total: PHP '+t.toFixed(2)+'</p>'
-    }else if(currentTransaction==='CASH OUT'){
-        var f=calculateFee(n);
-        var o=document.getElementById('cashOutOption').value;
-        if(o==='add'){
-            var t=n+f;
-            currentTotal=t;
-            h+='<p>💸 Amount: PHP '+n.toFixed(2)+'</p>';
-            h+='<p>📊 Fee: PHP '+f.toFixed(2)+'</p>';
-            h+='<p class="total">💰 Total: PHP '+t.toFixed(2)+'</p>'
-        }else{
-            var r=n-f;
-            currentTotal=n;
-            h+='<p>💸 Amount: PHP '+n.toFixed(2)+'</p>';
-            h+='<p>📊 Fee: PHP '+f.toFixed(2)+' (Deducted)</p>';
-            h+='<p class="total">\n💰 Customer Receives: PHP '+r.toFixed(2)+'</p>'
+    if (currentTransaction === 'CASH IN') {
+        var f = calculateFee(n);
+        var t = n + f;
+        currentTotal = t;
+        h += '<p>💵 Amount: PHP ' + n.toFixed(2) + '</p>';
+        h += '<p>📊 Fee: PHP ' + f.toFixed(2) + '</p>';
+        h += '<p class="total">💰 Total: PHP ' + t.toFixed(2) + '</p>';
+    } else if (currentTransaction === 'CASH OUT') {
+        var f = calculateFee(n);
+        var o = document.getElementById('cashOutOption').value;
+        if (o === 'add') {
+            var t = n + f;
+            currentTotal = t;
+            h += '<p>💸 Amount: PHP ' + n.toFixed(2) + '</p>';
+            h += '<p>📊 Fee: PHP ' + f.toFixed(2) + '</p>';
+            h += '<p class="total">💰 Total: PHP ' + t.toFixed(2) + '</p>';
+        } else {
+            var r = n - f;
+            currentTotal = n;
+            h += '<p>💸 Amount: PHP ' + n.toFixed(2) + '</p>';
+            h += '<p>📊 Fee: PHP ' + f.toFixed(2) + ' (Deducted)</p>';
+            h += '<p class="total">💰 Customer Receives: PHP ' + r.toFixed(2) + '</p>';
         }
-    }else if(currentTransaction==='MOBILE LOAD'){
-        var f=5;
-        var t=n+f;
-        currentTotal=t;
-        h+='<p>📱 Load: PHP '+n.toFixed(2)+'</p>';
-        h+='<p>📊 Fee: PHP 5.00</p>';
-        h+='<p class="total">💰 Total: PHP '+t.toFixed(2)+'</p>'
+    } else if (currentTransaction === 'MOBILE LOAD') {
+        var f = 5;
+        var t = n + f;
+        currentTotal = t;
+        h += '<p>📱 Load: PHP ' + n.toFixed(2) + '</p>';
+        h += '<p>📊 Fee: PHP 5.00</p>';
+        h += '<p class="total">💰 Total: PHP ' + t.toFixed(2) + '</p>';
     }
     
-    c.innerHTML=h;
+    c.innerHTML = h;
     c.classList.remove('hidden');
-    updateChange()
+    updateChange();
 }
 
-function updateChange(){
-    var t=parseFloat(document.getElementById('tendered').value);
-    if(!t||currentTransaction==='CASH OUT'||currentTransaction==='STAFF ONLY'){
+function updateChange() {
+    var t = parseFloat(document.getElementById('tendered').value);
+    if (!t || currentTransaction === 'CASH OUT' || currentTransaction === 'STAFF ONLY') {
         document.getElementById('changeBox').classList.add('hidden');
-        return
+        return;
     }
     
-    var change=t-currentTotal;
-    if(change>=0){
-        document.getElementById('changeAmount').textContent='PHP '+change.toFixed(2);
-        document.getElementById('changeBox').classList.remove('hidden')
-    }else{
-        document.getElementById('changeBox').classList.add('hidden')
+    var change = t - currentTotal;
+    if (change >= 0) {
+        document.getElementById('changeAmount').textContent = 'PHP ' + change.toFixed(2);
+        document.getElementById('changeBox').classList.remove('hidden');
+    } else {
+        document.getElementById('changeBox').classList.add('hidden');
     }
 }
 
-function showNotification(msg){
-    var n=document.createElement('div');
-    n.className='notification';
-    n.textContent=msg;
-    document.body.appendChild(n);
-    setTimeout(function(){
-        n.style.opacity='0';
-        setTimeout(function(){document.body.removeChild(n)},500)
-    },3000)
-}
-
-function sendTelegramNotification(tx){
-    saveTelegramSettings();
-    if(!telegramToken||!telegramChatId){return}
+function submitTransaction() {
+    var n = parseFloat(document.getElementById('amount').value);
+    var td = parseFloat(document.getElementById('tendered').value) || 0;
+    var sa = parseFloat(document.getElementById('staffAmount').value);
+    var s = document.getElementById('staffName').value;
+    var r = document.getElementById('remarks').value;
+    var o = document.getElementById('cashOutOption').value;
     
-    var emoji='';
-    if(tx.type==='CASH IN')emoji='💵';
-    else if(tx.type==='CASH OUT')emoji='💸';
-    else if(tx.type==='MOBILE LOAD')emoji='📱';
-    else if(tx.type==='STAFF ONLY')emoji='👤';
-    
-    // Compact format
-    var msg=emoji+' '+tx.type+'\n';
-    msg+='Amount: ₱'+tx.amount.toFixed(2)+'\nFee: ₱'+tx.fee.toFixed(2);
-    
-    if(tx.type==='CASH OUT' && tx.feeDeducted){
-        msg+=' (Deducted)\nReceives: ₱'+tx.received.toFixed(2);
-    }else{
-        msg+='\nTotal: ₱'+tx.total.toFixed(2);
-    }
-    
-    if(tx.type!=='CASH OUT' && tx.tendered>0){
-        msg+='\nTendered: ₱'+tx.tendered.toFixed(2)+'\nChange: ₱'+tx.change.toFixed(2);
-    }else if(tx.type==='CASH OUT' && tx.tendered>0){
-        msg+='\nAmount Sent: ₱'+tx.tendered.toFixed(2);
-    }
-    
-    if(tx.staffName){
-        msg+='\nStaff: '+tx.staffName;
-    }
-    
-    if(tx.remarks){
-        msg+='\nRemarks: '+tx.remarks;
-    }
-    
-    msg+='\n'+tx.timestamp;
-    
-    fetch('https://api.telegram.org/bot'+telegramToken+'/sendMessage',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-            chat_id:telegramChatId,
-            text:msg
-        })
-    }).then(function(rsp){
-        if(rsp.ok){console.log('Telegram sent')}
-    }).catch(function(err){
-        console.log('Telegram failed')
-    })
-}
-
-function submitTransaction(){
-    var n=parseFloat(document.getElementById('amount').value);
-    var td=parseFloat(document.getElementById('tendered').value)||0;
-    var sa=parseFloat(document.getElementById('staffAmount').value);
-    var s=document.getElementById('staffName').value;
-    var r=document.getElementById('remarks').value;
-    var o=document.getElementById('cashOutOption').value;
-    
-    if(currentTransaction!=='STAFF ONLY'&&!n){
+    if (currentTransaction !== 'STAFF ONLY' && !n) {
         alert('Please enter an amount');
-        return
+        return;
     }
     
-    if(currentTransaction==='STAFF ONLY'&&(!sa||!s||!r)){
+    if (currentTransaction === 'STAFF ONLY' && (!sa || !s || !r)) {
         alert('Please enter amount, staff name and remarks');
-        return
+        return;
     }
     
-    if(currentTransaction!=='STAFF ONLY'&&currentTransaction!=='CASH OUT'&&td>0&&td<currentTotal){
+    if (currentTransaction !== 'STAFF ONLY' && currentTransaction !== 'CASH OUT' && td > 0 && td < currentTotal) {
         alert('Insufficient amount tendered');
-        return
+        return;
     }
     
-    var f=0,t=0,rc=0,ch=0,d='',fd=false;
+    var f = 0, t = 0, rc = 0, ch = 0, d = '', fd = false;
     
-    if(currentTransaction==='CASH IN'){
-        f=calculateFee(n);
-        t=n+f;
-        ch=td>0?td-t:0;
-        d='Amount: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+'\nTotal: PHP '+t.toFixed(2)
-    }else if(currentTransaction==='CASH OUT'){
-        f=calculateFee(n);
-        if(o==='add'){
-            t=n+f;
-            rc=n;
-            d='Amount: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+'\nTotal: PHP '+t.toFixed(2)
-        }else{
-            t=n;
-            rc=n-f;
-            fd=true;
-            d='Amount: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+' (Deducted)\nReceives: PHP '+rc.toFixed(2)
+    if (currentTransaction === 'CASH IN') {
+        f = calculateFee(n);
+        t = n + f;
+        ch = td > 0 ? td - t : 0;
+        d = 'Amount: PHP ' + n.toFixed(2) + '\nFee: PHP ' + f.toFixed(2) + '\nTotal: PHP ' + t.toFixed(2);
+    } else if (currentTransaction === 'CASH OUT') {
+        f = calculateFee(n);
+        if (o === 'add') {
+            t = n + f;
+            rc = n;
+            d = 'Amount: PHP ' + n.toFixed(2) + '\nFee: PHP ' + f.toFixed(2) + '\nTotal: PHP ' + t.toFixed(2);
+        } else {
+            t = n;
+            rc = n - f;
+            fd = true;
+            d = 'Amount: PHP ' + n.toFixed(2) + '\nFee: PHP ' + f.toFixed(2) + ' (Deducted)\nReceives: PHP ' + rc.toFixed(2);
         }
-    }else if(currentTransaction==='MOBILE LOAD'){
-        f=5;
-        t=n+f;
-        ch=td>0?td-t:0;
-        d='Load: PHP '+n.toFixed(2)+'\nFee: PHP '+f.toFixed(2)+'\nTotal: PHP '+t.toFixed(2)
-    }else if(currentTransaction==='STAFF ONLY'){
-        d='Amount: PHP '+sa.toFixed(2)+'\nStaff: '+s+'\nRemarks: '+r;
-        n=sa
+    } else if (currentTransaction === 'MOBILE LOAD') {
+        f = 5;
+        t = n + f;
+        ch = td > 0 ? td - t : 0;
+        d = 'Load: PHP ' + n.toFixed(2) + '\nFee: PHP ' + f.toFixed(2) + '\nTotal: PHP ' + t.toFixed(2);
+    } else if (currentTransaction === 'STAFF ONLY') {
+        d = 'Amount: PHP ' + sa.toFixed(2) + '\nStaff: ' + s + '\nRemarks: ' + r;
+        n = sa;
     }
     
-    var tx={
-        id:Date.now(),
-        type:currentTransaction,
-        amount:n||0,
-        fee:f,
-        total:t,
-        received:rc,
-        tendered:td,
-        change:ch,
-        feeDeducted:fd,
-        details:d,
-        timestamp:new Date().toLocaleString(),
-        staffName:s||'',
-        remarks:r||''
+    var tx = {
+        id: Date.now(),
+        type: currentTransaction,
+        amount: n || 0,
+        fee: f,
+        total: t,
+        received: rc,
+        tendered: td,
+        change: ch,
+        feeDeducted: fd,
+        details: d,
+        timestamp: new Date().toLocaleString(),
+        staffName: s || '',
+        remarks: r || ''
     };
     
-    transactions.unshift(tx);
-    saveTransactions();
-    sendTelegramNotification(tx);
-    updateTransactionDisplay();
-    resetTransaction();
-    showNotification('✅ Transaction submitted successfully!')
-}
-
-function updateTransactionDisplay(){
-    var l=document.getElementById('transactionsList');
-    var rd=document.getElementById('recentTransactions');
+    console.log('Saving transaction:', tx);
     
-    if(transactions.length===0){
-        rd.classList.add('hidden');
-        return
-    }
-    
-    rd.classList.remove('hidden');
-    var rc=transactions.slice(0,5);
-    var h='';
-    
-    for(var i=0;i<rc.length;i++){
-        var tx=rc[i];
-        h+='<div class="transaction-item">';
-        h+='<span class="type">'+tx.type+'</span>';
-        h+='<span class="timestamp">'+tx.timestamp+'</span>';
-        h+='<div class="details">'+tx.details+'</div>';
-        h+='</div>'
-    }
-    
-    l.innerHTML=h;
-    
-    var ab=document.getElementById('adminTableBody');
-    if(ab){
-        var th='';
-        for(var j=0;j<transactions.length;j++){
-            var tx=transactions[j];
-            th+='<tr>';
-            th+='<td style="font-size: 12px;">'+tx.timestamp+'</td>';
-            th+='<td><span class="type">'+tx.type+'</span></td>';
-            th+='<td style="font-size: 14px;">'+tx.details+'</td>';
-            th+='</tr>'
+    // Save to Firebase
+    saveTransaction(tx).then(function() {
+        console.log('Transaction saved successfully');
+        transactions.unshift(tx);
+        sendTelegramNotification(tx);
+        updateTransactionDisplay();
+        resetTransaction();
+        showNotification('✅ Transaction submitted successfully!');
+        
+        // Update daily fees if admin is logged in
+        if (isAdmin) {
+            calculateDailyFees();
         }
-        ab.innerHTML=th
+    }).catch(function(error) {
+        console.error('Error saving transaction:', error);
+        showNotification('❌ Failed to save transaction: ' + error.message, 'error');
+    });
+}
+
+// ============================================
+// DISPLAY UPDATES
+// ============================================
+function updateTransactionDisplay() {
+    var l = document.getElementById('transactionsList');
+    var rd = document.getElementById('recentTransactions');
+    
+    if (transactions.length === 0) {
+        rd.classList.add('hidden');
+    } else {
+        rd.classList.remove('hidden');
+        var rc = transactions.slice(0, 5);
+        var h = '';
+        
+        for (var i = 0; i < rc.length; i++) {
+            var tx = rc[i];
+            h += '<div class="transaction-item">';
+            h += '<span class="type">' + tx.type + '</span>';
+            h += '<span class="timestamp">' + tx.timestamp + '</span>';
+            h += '<div class="details">' + tx.details + '</div>';
+            h += '</div>';
+        }
+        
+        l.innerHTML = h;
     }
     
-    document.getElementById('transactionCount').textContent=transactions.length
+    var ab = document.getElementById('adminTableBody');
+    if (ab) {
+        var th = '';
+        for (var j = 0; j < transactions.length; j++) {
+            var tx = transactions[j];
+            th += '<tr>';
+            th += '<td style="font-size: 12px;">' + tx.timestamp + '</td>';
+            th += '<td><span class="type">' + tx.type + '</span></td>';
+            th += '<td style="font-size: 14px;">' + tx.details + '</td>';
+            th += '</tr>';
+        }
+        ab.innerHTML = th;
+    }
+    
+    document.getElementById('transactionCount').textContent = transactions.length;
+    
+    // Update daily fees if admin is logged in
+    if (isAdmin) {
+        calculateDailyFees();
+    }
 }
 
-function showAdminLogin(){
+// ============================================
+// ADMIN FUNCTIONS
+// ============================================
+function showAdminLogin() {
     document.getElementById('mainView').classList.add('hidden');
-    document.getElementById('adminLoginView').classList.remove('hidden')
+    document.getElementById('adminLoginView').classList.remove('hidden');
 }
 
-function hideAdminLogin(){
+function hideAdminLogin() {
     document.getElementById('mainView').classList.remove('hidden');
-    document.getElementById('adminLoginView').classList.add('hidden')
+    document.getElementById('adminLoginView').classList.add('hidden');
 }
 
-function handleLoginEnter(e){
-    if(e.key==='Enter'){adminLogin()}
+function handleLoginEnter(e) {
+    if (e.key === 'Enter') {
+        adminLogin();
+    }
 }
 
-function adminLogin(){
-    var p=document.getElementById('adminPassword').value;
-    if(p==='admin123'){
+function adminLogin() {
+    var p = document.getElementById('adminPassword').value;
+    if (p === '0625Seb1@') {
+        isAdmin = true;
         document.getElementById('adminLoginView').classList.add('hidden');
         document.getElementById('adminPanelView').classList.remove('hidden');
         updateTransactionDisplay();
-        document.getElementById('adminPassword').value=''
-    }else{
-        alert('Incorrect password')
+        calculateDailyFees();
+        document.getElementById('adminPassword').value = '';
+    } else {
+        alert('Incorrect password');
     }
 }
 
-function logoutAdmin(){
+function logoutAdmin() {
+    isAdmin = false;
     document.getElementById('adminPanelView').classList.add('hidden');
-    document.getElementById('mainView').classList.remove('hidden')
+    document.getElementById('mainView').classList.remove('hidden');
 }
 
-function exportCSV(){
-    var h=['Timestamp','Type','Amount','Fee','Total','Tendered','Change','Details'];
-    var rs=[];
+function exportCSV() {
+    var h = ['Timestamp', 'Type', 'Amount', 'Fee', 'Total', 'Tendered', 'Change', 'Details'];
+    var rs = [];
     
-    for(var i=0;i<transactions.length;i++){
-        var tx=transactions[i];
-        var dc=tx.details.replace(/,/g,';');
-        rs.push([tx.timestamp,tx.type,tx.amount,tx.fee,tx.total,tx.tendered||0,tx.change||0,dc])
+    for (var i = 0; i < transactions.length; i++) {
+        var tx = transactions[i];
+        var dc = tx.details.replace(/,/g, ';');
+        rs.push([tx.timestamp, tx.type, tx.amount, tx.fee, tx.total, tx.tendered || 0, tx.change || 0, dc]);
     }
     
-    var csv=h.join(',')+'\n';
-    for(var j=0;j<rs.length;j++){
-        csv+=rs[j].join(',')+'\n'
+    var csv = h.join(',') + '\n';
+    for (var j = 0; j < rs.length; j++) {
+        csv += rs[j].join(',') + '\n';
     }
     
-    var b=new Blob([csv],{type:'text/csv'});
-    var u=window.URL.createObjectURL(b);
-    var a=document.createElement('a');
-    a.href=u;
-    var ds=new Date().toISOString().split('T')[0];
-    a.download='transactions_'+ds+'.csv';
+    var b = new Blob([csv], {type: 'text/csv'});
+    var u = window.URL.createObjectURL(b);
+    var a = document.createElement('a');
+    a.href = u;
+    var ds = new Date().toISOString().split('T')[0];
+    a.download = 'transactions_' + ds + '.csv';
     a.click();
-    showNotification('📥 CSV exported successfully!')
+    showNotification('📥 CSV exported successfully!');
 }
 
-function sendAllTelegram(){
+function clearLog() {
+    if (confirm('Are you sure you want to clear all transactions?')) {
+        clearAllTransactions().then(function() {
+            transactions = [];
+            updateTransactionDisplay();
+            showNotification('🗑️ Transaction log cleared!');
+        }).catch(function(error) {
+            console.error('Error clearing transactions:', error);
+            showNotification('❌ Failed to clear log', 'error');
+        });
+    }
+}
+
+// ============================================
+// TELEGRAM INTEGRATION
+// ============================================
+function sendTelegramNotification(tx) {
     saveTelegramSettings();
-    var tk=document.getElementById('telegramToken').value;
-    var ci=document.getElementById('telegramChatId').value;
-    
-    if(!tk||!ci){
-        alert('Please set Telegram Bot Token and Chat ID');
-        return
+    if (!telegramToken || !telegramChatId) {
+        return;
     }
     
-    var ms=[];
-    var lm=Math.min(10,transactions.length);
+    var emoji = '';
+    if (tx.type === 'CASH IN') emoji = '💵';
+    else if (tx.type === 'CASH OUT') emoji = '💸';
+    else if (tx.type === 'MOBILE LOAD') emoji = '📱';
+    else if (tx.type === 'STAFF ONLY') emoji = '👤';
     
-    for(var i=0;i<lm;i++){
-        var tx=transactions[i];
-        var emoji='';
-        if(tx.type==='CASH IN')emoji='💵';
-        else if(tx.type==='CASH OUT')emoji='💸';
-        else if(tx.type==='MOBILE LOAD')emoji='📱';
-        else if(tx.type==='STAFF ONLY')emoji='👤';
-        
-        var mg=emoji+' '+tx.type+' | ₱'+tx.total.toFixed(2)+'\n'+tx.timestamp;
-        ms.push(mg)
+    var msg = emoji + ' ' + tx.type + '\n';
+    msg += 'Amount: ₱' + tx.amount.toFixed(2) + '\nFee: ₱' + tx.fee.toFixed(2);
+    
+    if (tx.type === 'CASH OUT' && tx.feeDeducted) {
+        msg += ' (Deducted)\nReceives: ₱' + tx.received.toFixed(2);
+    } else {
+        msg += '\nTotal: ₱' + tx.total.toFixed(2);
     }
     
-    var m='📊 TRANSACTION REPORT\n\n'+ms.join('\n\n')+'\n\nTotal: '+transactions.length+' transactions';
+    if (tx.type !== 'CASH OUT' && tx.tendered > 0) {
+        msg += '\nTendered: ₱' + tx.tendered.toFixed(2) + '\nChange: ₱' + tx.change.toFixed(2);
+    } else if (tx.type === 'CASH OUT' && tx.tendered > 0) {
+        msg += '\nAmount Sent: ₱' + tx.tendered.toFixed(2);
+    }
     
-    fetch('https://api.telegram.org/bot'+tk+'/sendMessage',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-            chat_id:ci,
-            text:m
+    if (tx.staffName) {
+        msg += '\nStaff: ' + tx.staffName;
+    }
+    
+    if (tx.remarks) {
+        msg += '\nRemarks: ' + tx.remarks;
+    }
+    
+    msg += '\n' + tx.timestamp;
+    
+    fetch('https://api.telegram.org/bot' + telegramToken + '/sendMessage', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            chat_id: telegramChatId,
+            text: msg
         })
-    }).then(function(rsp){
-        if(rsp.ok){
-            showNotification('📤 Sent to Telegram successfully!')
-        }else{
-            alert('Failed to send to Telegram')
+    }).then(function(rsp) {
+        if (rsp.ok) {
+            console.log('Telegram sent');
         }
-    }).catch(function(err){
-        alert('Failed to send to Telegram')
-    })
+    }).catch(function(err) {
+        console.log('Telegram failed');
+    });
 }
 
-function clearLog(){
-    if(confirm('Are you sure you want to clear all transactions?')){
-        transactions=[];
-        saveTransactions();
-        updateTransactionDisplay();
-        showNotification('🗑️ Transaction log cleared!')
+function sendAllTelegram() {
+    saveTelegramSettings().then(function() {
+        var tk = document.getElementById('telegramToken').value;
+        var ci = document.getElementById('telegramChatId').value;
+        
+        if (!tk || !ci) {
+            alert('Please set Telegram Bot Token and Chat ID');
+            return;
+        }
+        
+        var ms = [];
+        var lm = Math.min(10, transactions.length);
+        
+        for (var i = 0; i < lm; i++) {
+            var tx = transactions[i];
+            var emoji = '';
+            if (tx.type === 'CASH IN') emoji = '💵';
+            else if (tx.type === 'CASH OUT') emoji = '💸';
+            else if (tx.type === 'MOBILE LOAD') emoji = '📱';
+            else if (tx.type === 'STAFF ONLY') emoji = '👤';
+            
+            var mg = emoji + ' ' + tx.type + ' | ₱' + tx.total.toFixed(2) + '\n' + tx.timestamp;
+            ms.push(mg);
+        }
+        
+        var m = '📊 TRANSACTION REPORT\n\n' + ms.join('\n\n') + '\n\nTotal: ' + transactions.length + ' transactions';
+        
+        fetch('https://api.telegram.org/bot' + tk + '/sendMessage', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                chat_id: ci,
+                text: m
+            })
+        }).then(function(rsp) {
+            if (rsp.ok) {
+                showNotification('📤 Sent to Telegram successfully!');
+            } else {
+                alert('Failed to send to Telegram');
+            }
+        }).catch(function(err) {
+            alert('Failed to send to Telegram');
+        });
+    });
+}
+
+// ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+function showNotification(msg, type) {
+    var n = document.createElement('div');
+    n.className = 'notification';
+    if (type === 'error') {
+        n.classList.add('error');
     }
+    n.textContent = msg;
+    document.body.appendChild(n);
+    setTimeout(function() {
+        n.style.opacity = '0';
+        setTimeout(function() {
+            document.body.removeChild(n);
+        }, 500);
+    }, 3000);
 }
 
+// ============================================
+// INITIALIZATION
+// ============================================
 loadTransactions();
     </script>
 </body>
