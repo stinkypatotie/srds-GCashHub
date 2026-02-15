@@ -135,7 +135,7 @@
 
         .transaction-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
         }
 
@@ -192,6 +192,12 @@
             background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
             border-color: #3b82f6;
             color: #1e40af;
+        }
+
+        .transaction-btn.bills-payment {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            border-color: #f59e0b;
+            color: #92400e;
         }
 
         .transaction-btn.staff-only {
@@ -296,6 +302,20 @@
 
         tr:hover {
             background-color: #f9fafb;
+        }
+
+        /* Fee table specific styling */
+        #feeTableBody tr {
+            background-color: white;
+        }
+
+        #feeTableBody input[type="number"] {
+            font-weight: 600;
+        }
+
+        #feeTableBody td {
+            padding: 12px 16px;
+            vertical-align: middle;
         }
 
         .stats-container {
@@ -544,9 +564,7 @@
                 <div class="header">
                     <h1>💳 GCash Hub</h1>
                     <div>
-                        <span id="userDisplay" style="margin-right: 15px; font-weight: 600;"></span>
-                        <button id="adminBtn" class="btn btn-warning" onclick="showAdminLogin()">🔐 Admin</button>
-                        <button id="logoutBtn" class="btn btn-secondary hidden" onclick="logout()">Logout</button>
+                        <button class="btn btn-warning" onclick="goToAdminPage()">🔐 Admin Panel</button>
                     </div>
                 </div>
             </div>
@@ -566,6 +584,10 @@
                     <button class="transaction-btn mobile-load" onclick="startTransaction('MOBILE LOAD')">
                         <span class="emoji">📱</span>
                         MOBILE LOAD
+                    </button>
+                    <button class="transaction-btn bills-payment" onclick="startTransaction('BILLS PAYMENT')">
+                        <span class="emoji">💡</span>
+                        BILLS PAYMENT
                     </button>
                     <button class="transaction-btn staff-only" onclick="startTransaction('STAFF ONLY')">
                         <span class="emoji">👤</span>
@@ -702,44 +724,129 @@
                     </table>
                 </div>
             </div>
+        </div>
 
-            <!-- Admin Section -->
-            <div id="adminSection" class="card hidden">
-                <h2 style="margin-bottom: 20px; color: #374151;">🔧 Admin Panel</h2>
+        <!-- Admin Page (Hidden by default) -->
+        <div id="adminPage" class="hidden">
+            <!-- Admin Header -->
+            <div class="card">
+                <div class="header">
+                    <h1>🔧 Admin Panel</h1>
+                    <div>
+                        <span id="userDisplay" style="margin-right: 15px; font-weight: 600;"></span>
+                        <button class="btn btn-secondary" onclick="goToMainPage()">← Back to Transactions</button>
+                        <button class="btn btn-danger" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telegram Configuration -->
+            <div class="card">
+                <h3 style="margin-bottom: 20px; color: #374151;">📱 Telegram Configuration</h3>
+                <div class="form-group">
+                    <label>Telegram Bot Token</label>
+                    <input type="text" id="telegramBotToken" placeholder="Enter your bot token (e.g., 123456:ABC-DEF...)">
+                </div>
+                <div class="form-group">
+                    <label>Telegram Chat ID</label>
+                    <input type="text" id="telegramChatId" placeholder="Enter your chat ID (e.g., 123456789)">
+                </div>
+                <button class="btn btn-success" onclick="saveTelegramConfig()">💾 Save Telegram Settings</button>
+                <button class="btn btn-info" onclick="testTelegramConnection()" style="margin-left: 10px;">🧪 Test Connection</button>
+            </div>
+
+            <!-- Admin Password Configuration -->
+            <div class="card">
+                <h3 style="margin-bottom: 20px; color: #374151;">🔐 Change Admin Password</h3>
+                <p style="margin-bottom: 15px; color: #6b7280;">Update the password required to access the admin panel.</p>
                 
-                <!-- Telegram Configuration -->
-                <div class="funds-input-section">
-                    <h3 style="margin-bottom: 20px; color: #374151;">📱 Telegram Configuration</h3>
-                    <div class="form-group">
-                        <label>Telegram Bot Token</label>
-                        <input type="text" id="telegramBotToken" placeholder="Enter your bot token (e.g., 123456:ABC-DEF...)">
-                    </div>
-                    <div class="form-group">
-                        <label>Telegram Chat ID</label>
-                        <input type="text" id="telegramChatId" placeholder="Enter your chat ID (e.g., 123456789)">
-                    </div>
-                    <button class="btn btn-success" onclick="saveTelegramConfig()">💾 Save Telegram Settings</button>
-                    <button class="btn btn-info" onclick="testTelegramConnection()" style="margin-left: 10px;">🧪 Test Connection</button>
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="currentPassword" placeholder="Enter current password">
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="newPassword" placeholder="Enter new password">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirmPassword" placeholder="Confirm new password">
+                </div>
+                <button class="btn btn-warning" onclick="changeAdminPassword()">🔒 Change Password</button>
+            </div>
+
+            <!-- Fee Configuration -->
+            <div class="card">
+                <h3 style="margin-bottom: 20px; color: #374151;">💰 Fee Configuration</h3>
+                
+                <!-- Cash In / Cash Out Fee Table -->
+                <h4 style="margin-bottom: 15px; color: #667eea;">Cash In & Cash Out Fee Schedule</h4>
+                <p style="margin-bottom: 10px; color: #6b7280;">Configure the fee brackets for Cash In and Cash Out transactions. All amounts are in Philippine Peso (₱).</p>
+                
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <strong style="color: #92400e;">📌 Progressive Fee Calculation:</strong>
+                    <p style="color: #78350f; margin-top: 8px; font-size: 14px;">
+                        For amounts <strong>above ₱10,000</strong>, fees are calculated progressively:<br>
+                        • First ₱10,000 is charged ₱100<br>
+                        • Remaining amount is charged based on its bracket<br>
+                        • Example: ₱11,000 = ₱100 (for first ₱10k) + ₱15 (for remaining ₱1k) = <strong>₱115 total</strong>
+                    </p>
                 </div>
                 
-                <!-- Funds Management -->
-                <div class="funds-input-section">
-                    <h3 style="margin-bottom: 20px; color: #374151;">💰 Current Funds</h3>
-                    <div class="funds-grid">
-                        <div class="form-group">
-                            <label>Digital Fund (GCash Balance)</label>
-                            <input type="number" id="digitalFund" step="0.01" placeholder="0.00" oninput="updateFundsDisplay()">
-                        </div>
-                        <div class="form-group">
-                            <label>Cash Fund (Physical Money)</label>
-                            <input type="number" id="cashFund" step="0.01" placeholder="0.00" oninput="updateFundsDisplay()">
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" onclick="setInitialFunds()">Set as Initial Funds</button>
+                <div style="margin-bottom: 30px;">
+                    <table style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%;">From Amount (₱)</th>
+                                <th style="width: 25%;">To Amount (₱)</th>
+                                <th style="width: 25%;">Fee (₱)</th>
+                                <th style="width: 25%;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feeTableBody">
+                            <!-- Fee rows will be dynamically loaded here -->
+                        </tbody>
+                    </table>
                 </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-primary" onclick="addFeeRow()">➕ Add Fee Bracket</button>
+                    <button class="btn btn-success" onclick="saveFeeSchedule()" style="margin-left: 10px;">💾 Save Fee Schedule</button>
+                    <button class="btn btn-secondary" onclick="resetFeeSchedule()" style="margin-left: 10px;">🔄 Reset to Default</button>
+                </div>
+                
+                <!-- Other Transaction Fees -->
+                <h4 style="margin: 30px 0 15px; color: #667eea;">Other Transaction Fees</h4>
+                <div class="funds-grid">
+                    <div class="form-group">
+                        <label>Mobile Load Fee (₱)</label>
+                        <input type="number" id="mobileLoadFee" step="0.01" placeholder="5.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Bills Payment Fee (₱)</label>
+                        <input type="number" id="billsPaymentFee" step="0.01" placeholder="15.00">
+                    </div>
+                </div>
+                <button class="btn btn-success" onclick="saveOtherFees()">💾 Save Other Fees</button>
+            </div>
+
+            <!-- Funds Management -->
+            <div class="card">
+                <h3 style="margin-bottom: 20px; color: #374151;">💰 Current Funds</h3>
+                <div class="funds-grid">
+                    <div class="form-group">
+                        <label>Digital Fund (GCash Balance)</label>
+                        <input type="number" id="digitalFund" step="0.01" placeholder="0.00" oninput="updateFundsDisplay()">
+                    </div>
+                    <div class="form-group">
+                        <label>Cash Fund (Physical Money)</label>
+                        <input type="number" id="cashFund" step="0.01" placeholder="0.00" oninput="updateFundsDisplay()">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="setInitialFunds()">Set as Initial Funds</button>
 
                 <!-- Funds Display -->
-                <div class="stats-container">
+                <div class="stats-container" style="margin-top: 30px;">
                     <div class="stat-card">
                         <div class="stat-label">DIGITAL FUND</div>
                         <div class="stat-value" id="displayDigitalFund">₱0.00</div>
@@ -761,9 +868,11 @@
                         <div class="stat-value" id="displayIncome">₱0.00</div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Verification Table -->
-                <h3 style="margin: 30px 0 20px; color: #374151;">✅ Transaction Verification</h3>
+            <!-- Transaction Verification -->
+            <div class="card">
+                <h3 style="margin-bottom: 20px; color: #374151;">✅ Transaction Verification</h3>
                 
                 <!-- Date Filter -->
                 <div class="filter-section">
@@ -853,6 +962,193 @@ var firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
+
+// ============================================
+// FEE SCHEDULE MANAGEMENT
+// ============================================
+function loadFeeSchedule() {
+    if (!database) {
+        console.error('Firebase database not initialized');
+        return;
+    }
+    
+    // Load fee schedule
+    database.ref('settings/feeSchedule').once('value').then(function(snapshot) {
+        if (snapshot.exists()) {
+            feeSchedule = snapshot.val();
+            console.log('Fee schedule loaded from Firebase:', feeSchedule.length + ' brackets');
+        } else {
+            console.log('No fee schedule in Firebase, using defaults');
+        }
+        
+        // Render table if admin is logged in
+        if (isAdmin && document.getElementById('feeTableBody')) {
+            renderFeeTable();
+        }
+    }).catch(function(error) {
+        console.error('Error loading fee schedule:', error);
+        // Render with default values if admin is logged in
+        if (isAdmin && document.getElementById('feeTableBody')) {
+            renderFeeTable();
+        }
+    });
+    
+    // Load other fees
+    database.ref('settings/otherFees').once('value').then(function(snapshot) {
+        if (snapshot.exists()) {
+            var fees = snapshot.val();
+            mobileLoadFee = fees.mobileLoad || 5;
+            billsPaymentFee = fees.billsPayment || 15;
+            
+            // Update input fields if they exist (admin is logged in)
+            if (document.getElementById('mobileLoadFee')) {
+                document.getElementById('mobileLoadFee').value = mobileLoadFee;
+            }
+            if (document.getElementById('billsPaymentFee')) {
+                document.getElementById('billsPaymentFee').value = billsPaymentFee;
+            }
+        } else {
+            // Set defaults
+            if (document.getElementById('mobileLoadFee')) {
+                document.getElementById('mobileLoadFee').value = mobileLoadFee;
+            }
+            if (document.getElementById('billsPaymentFee')) {
+                document.getElementById('billsPaymentFee').value = billsPaymentFee;
+            }
+        }
+    }).catch(function(error) {
+        console.error('Error loading other fees:', error);
+    });
+}
+
+function renderFeeTable() {
+    var tbody = document.getElementById('feeTableBody');
+    var html = '';
+    
+    for (var i = 0; i < feeSchedule.length; i++) {
+        html += '<tr>';
+        html += '<td><input type="number" id="feeFrom' + i + '" value="' + feeSchedule[i].from + '" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"></td>';
+        html += '<td><input type="number" id="feeTo' + i + '" value="' + feeSchedule[i].to + '" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"></td>';
+        html += '<td><input type="number" id="feeAmount' + i + '" value="' + feeSchedule[i].fee + '" step="0.01" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"></td>';
+        html += '<td style="text-align: center;"><button class="btn btn-danger btn-small" onclick="removeFeeRow(' + i + ')">🗑️ Remove</button></td>';
+        html += '</tr>';
+    }
+    
+    tbody.innerHTML = html;
+}
+
+function addFeeRow() {
+    var lastRow = feeSchedule[feeSchedule.length - 1];
+    var newRow = {
+        from: lastRow.to + 1,
+        to: lastRow.to + 500,
+        fee: lastRow.fee + 5
+    };
+    
+    feeSchedule.push(newRow);
+    renderFeeTable();
+    showNotification('✅ New fee bracket added');
+}
+
+function removeFeeRow(index) {
+    if (feeSchedule.length <= 1) {
+        showNotification('❌ Cannot remove the last fee bracket', 'error');
+        return;
+    }
+    
+    if (confirm('Remove this fee bracket?')) {
+        feeSchedule.splice(index, 1);
+        renderFeeTable();
+        showNotification('✅ Fee bracket removed');
+    }
+}
+
+function resetFeeSchedule() {
+    if (!confirm('Reset fee schedule to default values? This will discard any unsaved changes.')) {
+        return;
+    }
+    
+    // Reset to default schedule
+    feeSchedule = [
+        { from: 1, to: 500, fee: 10 },
+        { from: 501, to: 1000, fee: 15 },
+        { from: 1001, to: 2000, fee: 20 },
+        { from: 2001, to: 3000, fee: 30 },
+        { from: 3001, to: 4000, fee: 40 },
+        { from: 4001, to: 5000, fee: 50 },
+        { from: 5001, to: 5500, fee: 55 },
+        { from: 5501, to: 6000, fee: 60 },
+        { from: 6001, to: 6500, fee: 65 },
+        { from: 6501, to: 7000, fee: 70 },
+        { from: 7001, to: 7500, fee: 75 },
+        { from: 7501, to: 8000, fee: 80 },
+        { from: 8001, to: 8500, fee: 85 },
+        { from: 8501, to: 9000, fee: 90 },
+        { from: 9001, to: 9500, fee: 95 },
+        { from: 9501, to: 10000, fee: 100 }
+    ];
+    
+    renderFeeTable();
+    showNotification('🔄 Fee schedule reset to default values');
+}
+
+function saveFeeSchedule() {
+    // Collect data from table
+    var newSchedule = [];
+    for (var i = 0; i < feeSchedule.length; i++) {
+        var fromInput = document.getElementById('feeFrom' + i);
+        var toInput = document.getElementById('feeTo' + i);
+        var feeInput = document.getElementById('feeAmount' + i);
+        
+        if (fromInput && toInput && feeInput) {
+            newSchedule.push({
+                from: parseFloat(fromInput.value) || 0,
+                to: parseFloat(toInput.value) || 0,
+                fee: parseFloat(feeInput.value) || 0
+            });
+        }
+    }
+    
+    // Validate schedule
+    for (var i = 0; i < newSchedule.length; i++) {
+        if (newSchedule[i].from >= newSchedule[i].to) {
+            showNotification('❌ Row ' + (i + 1) + ': "From" amount must be less than "To" amount', 'error');
+            return;
+        }
+        if (newSchedule[i].fee < 0) {
+            showNotification('❌ Row ' + (i + 1) + ': Fee cannot be negative', 'error');
+            return;
+        }
+    }
+    
+    // Save to Firebase
+    database.ref('settings/feeSchedule').set(newSchedule).then(function() {
+        feeSchedule = newSchedule;
+        showNotification('✅ Fee schedule saved successfully!');
+    }).catch(function(error) {
+        console.error('Error saving fee schedule:', error);
+        showNotification('❌ Failed to save fee schedule', 'error');
+    });
+}
+
+function saveOtherFees() {
+    var mobileLoad = parseFloat(document.getElementById('mobileLoadFee').value) || 0;
+    var billsPayment = parseFloat(document.getElementById('billsPaymentFee').value) || 0;
+    
+    var fees = {
+        mobileLoad: mobileLoad,
+        billsPayment: billsPayment
+    };
+    
+    database.ref('settings/otherFees').set(fees).then(function() {
+        mobileLoadFee = mobileLoad;
+        billsPaymentFee = billsPayment;
+        showNotification('✅ Other fees saved successfully!');
+    }).catch(function(error) {
+        console.error('Error saving other fees:', error);
+        showNotification('❌ Failed to save other fees', 'error');
+    });
+}
 
 // ============================================
 // TELEGRAM CONFIGURATION
@@ -961,9 +1257,110 @@ var fundsData = {
     income: 0
 };
 
+// Admin password (loaded from Firebase)
+var adminPassword = 'admin123'; // Default password
+
+// Default fee schedule for Cash In and Cash Out
+var feeSchedule = [
+    { from: 1, to: 500, fee: 10 },
+    { from: 501, to: 1000, fee: 15 },
+    { from: 1001, to: 2000, fee: 20 },
+    { from: 2001, to: 3000, fee: 30 },
+    { from: 3001, to: 4000, fee: 40 },
+    { from: 4001, to: 5000, fee: 50 },
+    { from: 5001, to: 5500, fee: 55 },
+    { from: 5501, to: 6000, fee: 60 },
+    { from: 6001, to: 6500, fee: 65 },
+    { from: 6501, to: 7000, fee: 70 },
+    { from: 7001, to: 7500, fee: 75 },
+    { from: 7501, to: 8000, fee: 80 },
+    { from: 8001, to: 8500, fee: 85 },
+    { from: 8501, to: 9000, fee: 90 },
+    { from: 9001, to: 9500, fee: 95 },
+    { from: 9501, to: 10000, fee: 100 }
+];
+
+// Other transaction fees
+var mobileLoadFee = 5;
+var billsPaymentFee = 15;
+
 // ============================================
-// AUTHENTICATION
+// AUTHENTICATION & NAVIGATION
 // ============================================
+// Load admin password from Firebase
+function loadAdminPassword() {
+    if (!database) {
+        console.error('Firebase database not initialized');
+        return;
+    }
+    
+    database.ref('settings/adminPassword').once('value').then(function(snapshot) {
+        if (snapshot.exists()) {
+            adminPassword = snapshot.val();
+            console.log('Admin password loaded from Firebase');
+        } else {
+            // Set default password in Firebase
+            database.ref('settings/adminPassword').set('admin123').then(function() {
+                console.log('Default admin password set in Firebase');
+            });
+        }
+    }).catch(function(error) {
+        console.error('Error loading admin password:', error);
+    });
+}
+
+// Change admin password
+function changeAdminPassword() {
+    var current = document.getElementById('currentPassword').value;
+    var newPass = document.getElementById('newPassword').value;
+    var confirm = document.getElementById('confirmPassword').value;
+    
+    // Validation
+    if (!current || !newPass || !confirm) {
+        showNotification('❌ Please fill in all password fields', 'error');
+        return;
+    }
+    
+    if (current !== adminPassword) {
+        showNotification('❌ Current password is incorrect', 'error');
+        return;
+    }
+    
+    if (newPass.length < 6) {
+        showNotification('❌ New password must be at least 6 characters', 'error');
+        return;
+    }
+    
+    if (newPass !== confirm) {
+        showNotification('❌ New passwords do not match', 'error');
+        return;
+    }
+    
+    // Save new password to Firebase
+    database.ref('settings/adminPassword').set(newPass).then(function() {
+        adminPassword = newPass;
+        
+        // Clear fields
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+        
+        showNotification('✅ Admin password changed successfully!');
+    }).catch(function(error) {
+        console.error('Error changing password:', error);
+        showNotification('❌ Failed to change password', 'error');
+    });
+}
+
+function goToAdminPage() {
+    showAdminLogin();
+}
+
+function goToMainPage() {
+    document.getElementById('mainApp').classList.remove('hidden');
+    document.getElementById('adminPage').classList.add('hidden');
+}
+
 function showAdminLogin() {
     document.getElementById('adminModal').style.display = 'block';
     document.getElementById('adminAccessCode').value = '';
@@ -978,14 +1375,14 @@ function closeAdminLogin() {
 function adminLogin() {
     var code = document.getElementById('adminAccessCode').value;
     
-    if (code === 'admin123') {
+    if (code === adminPassword) {
         currentUser = 'Admin';
         isAdmin = true;
         
+        // Switch to admin page
+        document.getElementById('mainApp').classList.add('hidden');
+        document.getElementById('adminPage').classList.remove('hidden');
         document.getElementById('userDisplay').textContent = '👤 Admin';
-        document.getElementById('adminBtn').classList.add('hidden');
-        document.getElementById('logoutBtn').classList.remove('hidden');
-        document.getElementById('adminSection').classList.remove('hidden');
         
         closeAdminLogin();
         showNotification('✅ Welcome, Admin!');
@@ -994,7 +1391,11 @@ function adminLogin() {
         if (database) {
             loadFundsData();
             loadTelegramConfig();
+            loadFeeSchedule();
         }
+        
+        // Render fee table immediately with current data
+        renderFeeTable();
     } else {
         showNotification('❌ Invalid admin code', 'error');
     }
@@ -1004,10 +1405,10 @@ function logout() {
     currentUser = null;
     isAdmin = false;
     
+    // Return to main page
+    document.getElementById('mainApp').classList.remove('hidden');
+    document.getElementById('adminPage').classList.add('hidden');
     document.getElementById('userDisplay').textContent = '';
-    document.getElementById('adminBtn').classList.remove('hidden');
-    document.getElementById('logoutBtn').classList.add('hidden');
-    document.getElementById('adminSection').classList.add('hidden');
     
     showNotification('👋 Logged out successfully');
 }
@@ -1043,18 +1444,49 @@ function calculateFee() {
     var amount = parseFloat(document.getElementById('amount').value) || 0;
     var fee = 0;
     
-    if (currentTransactionType === 'CASH IN') {
-        if (amount <= 1000) fee = 5;
-        else if (amount <= 5000) fee = 10;
-        else if (amount <= 10000) fee = 15;
-        else fee = 20;
-    } else if (currentTransactionType === 'CASH OUT') {
-        if (amount <= 1000) fee = 15;
-        else if (amount <= 5000) fee = 20;
-        else if (amount <= 10000) fee = 25;
-        else fee = 30;
+    if (currentTransactionType === 'CASH IN' || currentTransactionType === 'CASH OUT') {
+        // Check if amount exceeds 10,000
+        if (amount > 10000) {
+            // Progressive fee calculation for amounts above 10,000
+            // Fee for first 10,000
+            var baseFee = 100; // Fee for 10,000 (from last bracket)
+            
+            // Calculate remainder
+            var remainder = amount - 10000;
+            var remainderFee = 0;
+            
+            // Find bracket for remainder
+            for (var i = 0; i < feeSchedule.length; i++) {
+                if (remainder >= feeSchedule[i].from && remainder <= feeSchedule[i].to) {
+                    remainderFee = feeSchedule[i].fee;
+                    break;
+                }
+            }
+            
+            // If remainder exceeds highest bracket, use the last fee
+            if (remainder > feeSchedule[feeSchedule.length - 1].to) {
+                remainderFee = feeSchedule[feeSchedule.length - 1].fee;
+            }
+            
+            fee = baseFee + remainderFee;
+        } else {
+            // Use fee schedule for amounts 10,000 and below
+            for (var i = 0; i < feeSchedule.length; i++) {
+                if (amount >= feeSchedule[i].from && amount <= feeSchedule[i].to) {
+                    fee = feeSchedule[i].fee;
+                    break;
+                }
+            }
+            
+            // If amount exceeds highest bracket but still <= 10,000, use the last fee
+            if (amount > feeSchedule[feeSchedule.length - 1].to && amount <= 10000) {
+                fee = feeSchedule[feeSchedule.length - 1].fee;
+            }
+        }
     } else if (currentTransactionType === 'MOBILE LOAD') {
-        fee = amount * 0.02; // 2% fee
+        fee = mobileLoadFee;
+    } else if (currentTransactionType === 'BILLS PAYMENT') {
+        fee = billsPaymentFee;
     } else if (currentTransactionType === 'STAFF ONLY') {
         fee = 0;
     }
@@ -1168,6 +1600,7 @@ function sendToTelegram(transaction) {
     if (transaction.type === 'CASH IN') emoji = '💵';
     else if (transaction.type === 'CASH OUT') emoji = '💸';
     else if (transaction.type === 'MOBILE LOAD') emoji = '📱';
+    else if (transaction.type === 'BILLS PAYMENT') emoji = '💡';
     else if (transaction.type === 'STAFF ONLY') emoji = '👤';
     
     var message = `${emoji} *${transaction.type}*\n\n` +
@@ -1235,8 +1668,10 @@ function initializeFirebase() {
     }
     
     console.log('Firebase initialized successfully');
+    loadAdminPassword(); // Load admin password
     loadTransactions();
     loadTelegramConfig();
+    loadFeeSchedule(); // Load fee schedule for calculations
 }
 
 function loadTransactions() {
@@ -1287,6 +1722,7 @@ function updateHistoryTable() {
         if (tx.type === 'CASH IN') typeClass = 'style="background: #d4fc79; color: #065f46; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         else if (tx.type === 'CASH OUT') typeClass = 'style="background: #ffecd2; color: #991b1b; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         else if (tx.type === 'MOBILE LOAD') typeClass = 'style="background: #a8edea; color: #1e40af; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
+        else if (tx.type === 'BILLS PAYMENT') typeClass = 'style="background: #ffeaa7; color: #92400e; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         else if (tx.type === 'STAFF ONLY') typeClass = 'style="background: #d299c2; color: #6b21a8; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         
         html += '<tr>';
@@ -1451,7 +1887,6 @@ function setInitialFunds() {
     }
 }
 
-// Update funds table
 // Update verification table with actual transactions
 function updateVerificationTable() {
     var tbody = document.getElementById('verifyTableBody');
@@ -1506,6 +1941,7 @@ function updateVerificationTable() {
         if (tx.type === 'CASH IN') typeClass = 'style="background: #d4fc79; color: #065f46; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         else if (tx.type === 'CASH OUT') typeClass = 'style="background: #ffecd2; color: #991b1b; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         else if (tx.type === 'MOBILE LOAD') typeClass = 'style="background: #a8edea; color: #1e40af; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
+        else if (tx.type === 'BILLS PAYMENT') typeClass = 'style="background: #ffeaa7; color: #92400e; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         else if (tx.type === 'STAFF ONLY') typeClass = 'style="background: #d299c2; color: #6b21a8; font-weight: 700; padding: 4px 8px; border-radius: 4px;"';
         
         html += '<tr>';
