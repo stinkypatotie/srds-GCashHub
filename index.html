@@ -39,10 +39,40 @@
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1400px;
             margin: 0 auto;
             position: relative;
             z-index: 1;
+        }
+
+        .app-layout {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-sticky {
+            position: sticky;
+            top: 20px;
+        }
+
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sidebar .card {
+            padding: 25px;
+        }
+
+        .sidebar h3 {
+            font-weight: 700;
+            text-align: center;
         }
 
         .card {
@@ -134,22 +164,26 @@
         }
 
         .transaction-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
         .transaction-btn {
-            padding: 50px 20px;
+            padding: 30px 20px;
             border: 3px solid;
-            border-radius: 20px;
-            font-size: 20px;
+            border-radius: 15px;
+            font-size: 18px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
             position: relative;
             overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         .transaction-btn::before {
@@ -171,9 +205,11 @@
         }
 
         .transaction-btn .emoji {
-            font-size: 48px;
-            display: block;
-            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .transaction-btn .text {
+            font-size: 16px;
         }
 
         .transaction-btn.cash-in {
@@ -536,8 +572,37 @@
         }
 
         @media (max-width: 768px) {
+            .app-layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+            }
+
+            .sidebar-sticky {
+                position: static;
+            }
+
             .transaction-grid {
-                grid-template-columns: 1fr;
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .transaction-btn {
+                padding: 20px 10px;
+                font-size: 14px;
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .transaction-btn .emoji {
+                font-size: 28px;
+            }
+
+            .transaction-btn .text {
+                font-size: 13px;
             }
 
             .funds-grid {
@@ -569,160 +634,197 @@
                 </div>
             </div>
 
-            <!-- Transaction Type Selection -->
-            <div class="card">
-                <h2 style="margin-bottom: 25px; color: #374151;">Select Transaction Type</h2>
-                <div class="transaction-grid">
-                    <button class="transaction-btn cash-in" onclick="startTransaction('CASH IN')">
-                        <span class="emoji">💵</span>
-                        CASH IN
-                    </button>
-                    <button class="transaction-btn cash-out" onclick="startTransaction('CASH OUT')">
-                        <span class="emoji">💸</span>
-                        CASH OUT
-                    </button>
-                    <button class="transaction-btn mobile-load" onclick="startTransaction('MOBILE LOAD')">
-                        <span class="emoji">📱</span>
-                        MOBILE LOAD
-                    </button>
-                    <button class="transaction-btn bills-payment" onclick="startTransaction('BILLS PAYMENT')">
-                        <span class="emoji">💡</span>
-                        BILLS PAYMENT
-                    </button>
-                    <button class="transaction-btn staff-only" onclick="startTransaction('STAFF ONLY')">
-                        <span class="emoji">👤</span>
-                        STAFF ONLY
-                    </button>
-                </div>
-            </div>
+            <!-- App Layout with Sidebar -->
+            <div class="app-layout">
+                <!-- Sidebar with Transaction Types -->
+                <aside class="sidebar">
+                    <div class="sidebar-sticky">
+                        <div class="card">
+                            <h3 style="margin-bottom: 20px; color: #374151; font-size: 18px;">Transaction Types</h3>
+                            <div class="transaction-grid">
+                                <button class="transaction-btn cash-in" onclick="startTransaction('CASH IN')">
+                                    <span class="emoji">💵</span>
+                                    <span class="text">CASH IN</span>
+                                </button>
+                                <button class="transaction-btn cash-out" onclick="startTransaction('CASH OUT')">
+                                    <span class="emoji">💸</span>
+                                    <span class="text">CASH OUT</span>
+                                </button>
+                                <button class="transaction-btn mobile-load" onclick="startTransaction('MOBILE LOAD')">
+                                    <span class="emoji">📱</span>
+                                    <span class="text">MOBILE LOAD</span>
+                                </button>
+                                <button class="transaction-btn bills-payment" onclick="startTransaction('BILLS PAYMENT')">
+                                    <span class="emoji">💡</span>
+                                    <span class="text">BILLS PAYMENT</span>
+                                </button>
+                                <button class="transaction-btn staff-only" onclick="startTransaction('STAFF ONLY')">
+                                    <span class="emoji">👤</span>
+                                    <span class="text">STAFF ONLY</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
 
-            <!-- Transaction Form (Hidden by default) -->
-            <div id="transactionForm" class="card hidden">
-                <h2 id="formTitle" style="margin-bottom: 25px; color: #374151;"></h2>
-                
-                <div class="form-group">
-                    <label>Amount (₱)</label>
-                    <input type="number" id="amount" step="0.01" placeholder="0.00" oninput="calculateFee()">
-                </div>
+                <!-- Main Content Area -->
+                <main class="main-content">
+                    <!-- Transaction Form (Hidden by default) -->
+                    <div id="transactionForm" class="card hidden">
+                        <h2 id="formTitle" style="margin-bottom: 25px; color: #374151;"></h2>
+                        
+                        <!-- Fee Handling Option (Only for Cash Out) -->
+                        <div id="feeHandlingSection" class="hidden" style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <label style="font-weight: 700; color: #92400e; margin-bottom: 10px;">💳 Fee Handling Method:</label>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <label style="display: flex; align-items: center; cursor: pointer; color: #78350f;">
+                                    <input type="radio" name="feeHandling" value="add" checked style="margin-right: 10px; width: auto; cursor: pointer;">
+                                    <span><strong>Add fee to tendered amount</strong> - Customer pays amount + fee</span>
+                                </label>
+                                <label style="display: flex; align-items: center; cursor: pointer; color: #78350f;">
+                                    <input type="radio" name="feeHandling" value="deduct" style="margin-right: 10px; width: auto; cursor: pointer;">
+                                    <span><strong>Deduct fee from received amount</strong> - Customer receives amount - fee</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Amount (₱)</label>
+                            <input type="number" id="amount" step="0.01" placeholder="0.00" oninput="calculateFee()">
+                        </div>
 
-                <div class="form-group">
-                    <label>Transaction Fee (₱)</label>
-                    <input type="number" id="fee" step="0.01" placeholder="0.00" oninput="calculateTotal()" readonly>
-                </div>
+                        <div class="form-group">
+                            <label>Transaction Fee (₱)</label>
+                            <input type="number" id="fee" step="0.01" placeholder="0.00" oninput="calculateTotal()" readonly>
+                        </div>
 
-                <div class="calculation-box">
-                    <h3>Transaction Summary</h3>
-                    <div class="calculation-row">
-                        <span>Base Amount:</span>
-                        <span id="displayAmount">₱0.00</span>
-                    </div>
-                    <div class="calculation-row">
-                        <span>Transaction Fee:</span>
-                        <span id="displayFee">₱0.00</span>
-                    </div>
-                    <div class="calculation-row">
-                        <span>TOTAL:</span>
-                        <span id="displayTotal">₱0.00</span>
-                    </div>
-                </div>
+                        <div class="calculation-box">
+                            <h3>Transaction Summary</h3>
+                            <div class="calculation-row">
+                                <span>Base Amount:</span>
+                                <span id="displayAmount">₱0.00</span>
+                            </div>
+                            <div class="calculation-row">
+                                <span>Transaction Fee:</span>
+                                <span id="displayFee">₱0.00</span>
+                            </div>
+                            <div class="calculation-row" id="customerPaysRow">
+                                <span>Customer Pays:</span>
+                                <span id="displayCustomerPays">₱0.00</span>
+                            </div>
+                            <div class="calculation-row" id="customerReceivesRow">
+                                <span>Customer Receives:</span>
+                                <span id="displayCustomerReceives">₱0.00</span>
+                            </div>
+                            <div class="calculation-row">
+                                <span>TOTAL:</span>
+                                <span id="displayTotal">₱0.00</span>
+                            </div>
+                        </div>
 
-                <div class="form-group">
-                    <label>Tendered Amount (₱)</label>
-                    <input type="number" id="tendered" step="0.01" placeholder="0.00" oninput="calculateChange()">
-                </div>
+                        <div class="form-group">
+                            <label>Tendered Amount (₱)</label>
+                            <input type="number" id="tendered" step="0.01" placeholder="0.00" oninput="calculateChange()">
+                        </div>
 
-                <div class="form-group">
-                    <label>Change (₱)</label>
-                    <input type="number" id="change" step="0.01" placeholder="0.00" readonly>
-                </div>
+                        <div class="form-group">
+                            <label>Change (₱)</label>
+                            <input type="number" id="change" step="0.01" placeholder="0.00" readonly>
+                        </div>
 
-                <div class="form-group">
-                    <label>Remarks (Optional)</label>
-                    <textarea id="remarks" rows="3" placeholder="Add any notes or comments..."></textarea>
-                </div>
+                        <div class="form-group">
+                            <label>Remarks (Optional)</label>
+                            <textarea id="remarks" rows="3" placeholder="Add any notes or comments..."></textarea>
+                        </div>
 
-                <div class="action-buttons">
-                    <button class="btn btn-secondary" onclick="cancelTransaction()">Cancel</button>
-                    <button class="btn btn-success" onclick="confirmTransaction()">Confirm Transaction</button>
-                </div>
-            </div>
+                        <div class="action-buttons">
+                            <button class="btn btn-secondary" onclick="cancelTransaction()">Cancel</button>
+                            <button class="btn btn-success" onclick="confirmTransaction()">Confirm Transaction</button>
+                        </div>
+                    </div>
 
-            <!-- Transaction Receipt (Hidden by default) -->
-            <div id="receiptSection" class="card hidden">
-                <div class="receipt">
-                    <div class="receipt-header">
-                        <h2>🧾 Transaction Receipt</h2>
-                        <p id="receiptDate"></p>
+                    <!-- Transaction Receipt (Hidden by default) -->
+                    <div id="receiptSection" class="card hidden">
+                        <div class="receipt">
+                            <div class="receipt-header">
+                                <h2>🧾 Transaction Receipt</h2>
+                                <p id="receiptDate"></p>
+                            </div>
+                            <div class="receipt-row">
+                                <span>Transaction Type:</span>
+                                <span id="receiptType"></span>
+                            </div>
+                            <div class="receipt-row">
+                                <span>Amount:</span>
+                                <span id="receiptAmount"></span>
+                            </div>
+                            <div class="receipt-row">
+                                <span>Fee:</span>
+                                <span id="receiptFee"></span>
+                            </div>
+                            <div class="receipt-row total">
+                                <span>TOTAL:</span>
+                                <span id="receiptTotal"></span>
+                            </div>
+                            <div class="receipt-row">
+                                <span>Tendered:</span>
+                                <span id="receiptTendered"></span>
+                            </div>
+                            <div class="receipt-row">
+                                <span>Change:</span>
+                                <span id="receiptChange"></span>
+                            </div>
+                            <div class="receipt-row" id="receiptFeeHandlingRow" style="display: none;">
+                                <span>Fee Method:</span>
+                                <span id="receiptFeeHandling" style="font-size: 12px;"></span>
+                            </div>
+                            <div class="receipt-row" id="receiptRemarksRow">
+                                <span>Remarks:</span>
+                                <span id="receiptRemarks"></span>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%;" onclick="newTransaction()">New Transaction</button>
                     </div>
-                    <div class="receipt-row">
-                        <span>Transaction Type:</span>
-                        <span id="receiptType"></span>
-                    </div>
-                    <div class="receipt-row">
-                        <span>Amount:</span>
-                        <span id="receiptAmount"></span>
-                    </div>
-                    <div class="receipt-row">
-                        <span>Fee:</span>
-                        <span id="receiptFee"></span>
-                    </div>
-                    <div class="receipt-row total">
-                        <span>TOTAL:</span>
-                        <span id="receiptTotal"></span>
-                    </div>
-                    <div class="receipt-row">
-                        <span>Tendered:</span>
-                        <span id="receiptTendered"></span>
-                    </div>
-                    <div class="receipt-row">
-                        <span>Change:</span>
-                        <span id="receiptChange"></span>
-                    </div>
-                    <div class="receipt-row" id="receiptRemarksRow">
-                        <span>Remarks:</span>
-                        <span id="receiptRemarks"></span>
-                    </div>
-                </div>
-                <button class="btn btn-primary" style="width: 100%;" onclick="newTransaction()">New Transaction</button>
-            </div>
 
-            <!-- Transaction History -->
-            <div class="card">
-                <h2 style="margin-bottom: 20px; color: #374151;">📊 Transaction History</h2>
-                
-                <div class="stats-container">
-                    <div class="stat-card">
-                        <div class="stat-label">TOTAL TRANSACTIONS</div>
-                        <div class="stat-value" id="totalTransactions">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">TOTAL FEES EARNED</div>
-                        <div class="stat-value" id="totalFeesEarned">₱0.00</div>
-                    </div>
-                </div>
+                    <!-- Transaction History -->
+                    <div class="card">
+                        <h2 style="margin-bottom: 20px; color: #374151;">📊 Transaction History</h2>
+                        
+                        <div class="stats-container">
+                            <div class="stat-card">
+                                <div class="stat-label">TOTAL TRANSACTIONS</div>
+                                <div class="stat-value" id="totalTransactions">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">TOTAL FEES EARNED</div>
+                                <div class="stat-value" id="totalFeesEarned">₱0.00</div>
+                            </div>
+                        </div>
 
-                <div style="overflow-x: auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Date & Time</th>
-                                <th>Type</th>
-                                <th>Amount</th>
-                                <th>Fee</th>
-                                <th>Total</th>
-                                <th>Tendered</th>
-                                <th>Change</th>
-                                <th>Remarks</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyTableBody">
-                            <tr>
-                                <td colspan="9" style="text-align: center; color: #9ca3af;">No transactions yet</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Type</th>
+                                        <th>Amount</th>
+                                        <th>Fee</th>
+                                        <th>Total</th>
+                                        <th>Tendered</th>
+                                        <th>Change</th>
+                                        <th>Remarks</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    <tr>
+                                        <td colspan="9" style="text-align: center; color: #9ca3af;">No transactions yet</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </main>
             </div>
         </div>
 
@@ -1430,6 +1532,31 @@ function startTransaction(type) {
     document.getElementById('transactionForm').classList.remove('hidden');
     document.getElementById('receiptSection').classList.add('hidden');
     
+    // Show/hide fee handling section for Cash Out
+    var feeHandlingSection = document.getElementById('feeHandlingSection');
+    var customerPaysRow = document.getElementById('customerPaysRow');
+    var customerReceivesRow = document.getElementById('customerReceivesRow');
+    
+    if (type === 'CASH OUT') {
+        feeHandlingSection.classList.remove('hidden');
+        customerPaysRow.style.display = 'flex';
+        customerReceivesRow.style.display = 'flex';
+        // Set default to "add"
+        document.querySelector('input[name="feeHandling"][value="add"]').checked = true;
+    } else {
+        feeHandlingSection.classList.add('hidden');
+        customerPaysRow.style.display = 'none';
+        customerReceivesRow.style.display = 'none';
+    }
+    
+    // Add event listeners to radio buttons
+    var radioButtons = document.querySelectorAll('input[name="feeHandling"]');
+    radioButtons.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            calculateFee();
+        });
+    });
+    
     // Reset form
     document.getElementById('amount').value = '';
     document.getElementById('fee').value = '';
@@ -1502,14 +1629,65 @@ function calculateTotal() {
     
     document.getElementById('displayAmount').textContent = '₱' + formatWithCommas(amount.toFixed(2));
     document.getElementById('displayFee').textContent = '₱' + formatWithCommas(fee.toFixed(2));
-    document.getElementById('displayTotal').textContent = '₱' + formatWithCommas(total.toFixed(2));
+    
+    // Handle Cash Out fee methods
+    if (currentTransactionType === 'CASH OUT') {
+        var feeHandling = document.querySelector('input[name="feeHandling"]:checked');
+        var feeMethod = feeHandling ? feeHandling.value : 'add';
+        
+        if (feeMethod === 'add') {
+            // Customer pays amount + fee, receives full amount
+            var customerPays = amount + fee;
+            var customerReceives = amount;
+            
+            document.getElementById('displayCustomerPays').textContent = '₱' + formatWithCommas(customerPays.toFixed(2));
+            document.getElementById('displayCustomerReceives').textContent = '₱' + formatWithCommas(customerReceives.toFixed(2));
+            document.getElementById('displayTotal').textContent = '₱' + formatWithCommas(customerPays.toFixed(2));
+            
+            // Update the label for clarity
+            document.getElementById('displayTotal').parentElement.querySelector('span:first-child').textContent = 'Amount to Collect:';
+        } else {
+            // Customer pays amount, receives amount - fee
+            var customerPays = amount;
+            var customerReceives = amount - fee;
+            
+            document.getElementById('displayCustomerPays').textContent = '₱' + formatWithCommas(customerPays.toFixed(2));
+            document.getElementById('displayCustomerReceives').textContent = '₱' + formatWithCommas(customerReceives.toFixed(2));
+            document.getElementById('displayTotal').textContent = '₱' + formatWithCommas(customerPays.toFixed(2));
+            
+            // Update the label for clarity
+            document.getElementById('displayTotal').parentElement.querySelector('span:first-child').textContent = 'Amount to Collect:';
+        }
+    } else {
+        // For other transaction types, use standard calculation
+        document.getElementById('displayTotal').textContent = '₱' + formatWithCommas(total.toFixed(2));
+        document.getElementById('displayTotal').parentElement.querySelector('span:first-child').textContent = 'TOTAL:';
+    }
 }
 
 function calculateChange() {
-    var total = parseFloat(document.getElementById('amount').value || 0) + 
-                parseFloat(document.getElementById('fee').value || 0);
+    var amount = parseFloat(document.getElementById('amount').value) || 0;
+    var fee = parseFloat(document.getElementById('fee').value) || 0;
     var tendered = parseFloat(document.getElementById('tendered').value) || 0;
-    var change = tendered - total;
+    var change = 0;
+    
+    if (currentTransactionType === 'CASH OUT') {
+        var feeHandling = document.querySelector('input[name="feeHandling"]:checked');
+        var feeMethod = feeHandling ? feeHandling.value : 'add';
+        
+        if (feeMethod === 'add') {
+            // Customer should pay amount + fee
+            var totalToPay = amount + fee;
+            change = tendered - totalToPay;
+        } else {
+            // Customer should pay amount only
+            change = tendered - amount;
+        }
+    } else {
+        // Standard calculation for other transaction types
+        var total = amount + fee;
+        change = tendered - total;
+    }
     
     document.getElementById('change').value = change.toFixed(2);
 }
@@ -1531,6 +1709,7 @@ function confirmTransaction() {
         return;
     }
     
+    // Build transaction object
     var transaction = {
         type: currentTransactionType,
         amount: amount,
@@ -1542,6 +1721,22 @@ function confirmTransaction() {
         timestamp: new Date().toLocaleString(),
         user: currentUser || 'Staff'
     };
+    
+    // Add fee handling info for Cash Out
+    if (currentTransactionType === 'CASH OUT') {
+        var feeHandling = document.querySelector('input[name="feeHandling"]:checked');
+        var feeMethod = feeHandling ? feeHandling.value : 'add';
+        
+        transaction.feeHandling = feeMethod;
+        
+        if (feeMethod === 'add') {
+            transaction.customerPays = amount + fee;
+            transaction.customerReceives = amount;
+        } else {
+            transaction.customerPays = amount;
+            transaction.customerReceives = amount - fee;
+        }
+    }
     
     // Save to Firebase
     database.ref('transactions').push(transaction).then(function() {
@@ -1572,6 +1767,21 @@ function displayReceipt(transaction) {
     document.getElementById('receiptTotal').textContent = '₱' + formatWithCommas(transaction.total.toFixed(2));
     document.getElementById('receiptTendered').textContent = '₱' + formatWithCommas(transaction.tendered.toFixed(2));
     document.getElementById('receiptChange').textContent = '₱' + formatWithCommas(transaction.change.toFixed(2));
+    
+    // Show fee handling info for Cash Out
+    var feeHandlingRow = document.getElementById('receiptFeeHandlingRow');
+    if (transaction.type === 'CASH OUT' && transaction.feeHandling) {
+        var feeHandlingText = '';
+        if (transaction.feeHandling === 'add') {
+            feeHandlingText = 'Fee added to amount (Customer paid ₱' + formatWithCommas(transaction.customerPays.toFixed(2)) + ', received ₱' + formatWithCommas(transaction.customerReceives.toFixed(2)) + ')';
+        } else {
+            feeHandlingText = 'Fee deducted from amount (Customer paid ₱' + formatWithCommas(transaction.customerPays.toFixed(2)) + ', received ₱' + formatWithCommas(transaction.customerReceives.toFixed(2)) + ')';
+        }
+        document.getElementById('receiptFeeHandling').textContent = feeHandlingText;
+        feeHandlingRow.style.display = 'flex';
+    } else {
+        feeHandlingRow.style.display = 'none';
+    }
     
     if (transaction.remarks) {
         document.getElementById('receiptRemarks').textContent = transaction.remarks;
@@ -1606,11 +1816,23 @@ function sendToTelegram(transaction) {
     var message = `${emoji} *${transaction.type}*\n\n` +
                   `📅 ${transaction.timestamp}\n` +
                   `💰 Amount: ₱${formatWithCommas(transaction.amount.toFixed(2))}\n` +
-                  `💳 Fee: ₱${formatWithCommas(transaction.fee.toFixed(2))}\n` +
-                  `💵 Total: ₱${formatWithCommas(transaction.total.toFixed(2))}\n` +
-                  `🤝 Tendered: ₱${formatWithCommas(transaction.tendered.toFixed(2))}\n` +
-                  `💸 Change: ₱${formatWithCommas(transaction.change.toFixed(2))}\n` +
-                  `👤 User: ${transaction.user}`;
+                  `💳 Fee: ₱${formatWithCommas(transaction.fee.toFixed(2))}\n`;
+    
+    // Add fee handling info for Cash Out
+    if (transaction.type === 'CASH OUT' && transaction.feeHandling) {
+        if (transaction.feeHandling === 'add') {
+            message += `💵 Customer Paid: ₱${formatWithCommas(transaction.customerPays.toFixed(2))} (amount + fee)\n`;
+            message += `💸 Customer Received: ₱${formatWithCommas(transaction.customerReceives.toFixed(2))}\n`;
+        } else {
+            message += `💵 Customer Paid: ₱${formatWithCommas(transaction.customerPays.toFixed(2))}\n`;
+            message += `💸 Customer Received: ₱${formatWithCommas(transaction.customerReceives.toFixed(2))} (amount - fee)\n`;
+        }
+    }
+    
+    message += `💵 Total: ₱${formatWithCommas(transaction.total.toFixed(2))}\n` +
+               `🤝 Tendered: ₱${formatWithCommas(transaction.tendered.toFixed(2))}\n` +
+               `💸 Change: ₱${formatWithCommas(transaction.change.toFixed(2))}\n` +
+               `👤 User: ${transaction.user}`;
     
     if (transaction.remarks) {
         message += `\n📝 Remarks: ${transaction.remarks}`;
