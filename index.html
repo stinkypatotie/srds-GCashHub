@@ -252,13 +252,14 @@
                             <span id="historyDateLabel" style="font-size: 14px; color: #6b7280; font-weight: 600; background: #f3f4f6; padding: 6px 14px; border-radius: 20px;"></span>
                         </div>
                         <div class="today-stats">
-                            <div class="stat-card">
+                            <div class="stat-card" style="grid-column: 1 / -1;">
                                 <div class="stat-label">TODAY'S TRANSACTIONS</div>
                                 <div class="stat-value" id="totalTransactions">0</div>
                             </div>
-                            <div class="stat-card">
+                            <!-- Fees Earned: Admin Only - hidden from main page -->
+                            <div class="stat-card" id="feesEarnedCard" style="display:none;">
                                   <div class="stat-label">TODAY'S FEES EARNED</div>
-                                  <div class="stat-value" id="totalFeesEarned" style="color: #10b981;">P0.00</div>
+                                  <div class="stat-value" id="totalFeesEarned" style="color: #10b981;">₱0.00</div>
                             </div>
                         </div>
                         <div style="overflow-x: auto;">
@@ -274,8 +275,6 @@
                             </table>
                         </div>
                     </div>
-
-
 
                 </main>
             </div>
@@ -429,8 +428,19 @@
                     <div class="stat-card"><div class="stat-label">CASH FUND</div><div class="stat-value" id="displayCashFund">₱0.00</div></div>
                     <div class="stat-card"><div class="stat-label">TOTAL FUNDS</div><div class="stat-value" id="displayTotalFunds">₱0.00</div></div>
                     <div class="stat-card"><div class="stat-label">INITIAL FUNDS</div><div class="stat-value" id="displayInitialFunds">₱0.00</div></div>
-                    <div class="stat-card"><div class="stat-label">INCOME/LOSS</div><div class="stat-value" id="displayIncome">₱0.00</div></div>
+                    <div class="stat-card"><div class="stat-label">INCOME/LOSS<br><small style="font-size:10px;color:#9ca3af;">(Total − Initial)</small></div><div class="stat-value" id="displayIncome">₱0.00</div></div>
+                    <div class="stat-card"><div class="stat-label">FEES EARNED<br><small style="font-size:10px;color:#9ca3af;">(per date filter)</small></div><div class="stat-value" id="displayTodayFees" style="color:#667eea;">₱0.00</div></div>
                 </div>
+
+                <!-- Net Income Result -->
+                <div id="netIncomeBox" style="margin-top:20px; background: linear-gradient(135deg, #6b7280, #4b5563); border-radius: 16px; padding: 24px 28px; color: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,0.2);">
+                    <div>
+                        <div style="font-size:18px; font-weight:700;">💹 NET INCOME</div>
+                        <small style="opacity:0.85; font-size:12px;">Income − Fees Earned (follows date filter)</small>
+                    </div>
+                    <div id="displayNetIncome" style="font-size:34px; font-weight:800; letter-spacing:-1px;">₱0.00</div>
+                </div>
+                <div id="netIncomeStatus" style="text-align:center; margin-top:10px; font-size:14px; font-weight:600; color:#6b7280;"></div>
             </div>
 
             <div class="card">
@@ -822,7 +832,6 @@ function adminLogin() {
         document.getElementById('userDisplay').textContent = '👤 Admin';
         closeAdminLogin();
         showNotification('✅ Welcome, Admin!');
-        loadFundsData(); loadTelegramConfig(); loadFeeSchedule();
         renderFeeTable();
         initDenomCounter();
     } else {
@@ -1026,6 +1035,14 @@ function initializeFirebase() {
     loadTelegramConfig();
     loadFeeSchedule();
 
+    // Load funds for net income display (available to all users)
+    database.ref('funds/current').once('value').then(function(snapshot) {
+        if (snapshot.exists()) {
+            fundsData = snapshot.val();
+            updateNetIncomeCard();
+        }
+    });
+
     var today = new Date();
     var opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('historyDateLabel').textContent = today.toLocaleDateString('en-PH', opts);
@@ -1080,6 +1097,7 @@ function updateHistoryTable() {
     tbody.innerHTML = html;
     document.getElementById('totalTransactions').textContent = todayTx.length;
     document.getElementById('totalFeesEarned').textContent = '₱' + fmt(totalFees);
+    updateNetIncomeCard();
 }
 
 // ============================================
@@ -1131,6 +1149,7 @@ function updateVerificationTable() {
     document.getElementById('verifyTransactionCount').textContent = filtered.length;
     document.getElementById('verifyTotalFees').textContent = '₱' + fmt(totalFees);
     window.filtered = filtered;
+    updateNetIncomeCard();
 }
 
 function filterToday() {
@@ -1180,6 +1199,7 @@ function updateFundsDisplay() {
     ie.textContent = '₱' + fmt(income);
     ie.style.color = income > 0 ? '#10b981' : income < 0 ? '#ef4444' : '#374151';
     if (isAdmin && (digital > 0 || cash > 0)) saveFundsData();
+    updateNetIncomeCard();
 }
 function setInitialFunds() {
     var digital = parseFloat(document.getElementById('digitalFund').value) || 0;
@@ -1226,8 +1246,50 @@ function showNotification(message, type) {
 }
 
 // ============================================
-// INIT
+// NET INCOME (inside Current Funds card)
 // ============================================
+function updateNetIncomeCard() {
+    var totalFunds = fundsData.totalFunds || ((fundsData.digitalFund || 0) + (fundsData.cashFund || 0));
+    var initialFunds = fundsData.initialFunds || 0;
+    var income = totalFunds - initialFunds;
+
+    // Total fees from currently filtered transactions (matches Transaction Verification filter)
+    var source = (window.filtered && window.filtered.length >= 0) ? window.filtered : transactions;
+    var totalFees = 0;
+    for (var i = 0; i < source.length; i++) { totalFees += source[i].fee || 0; }
+
+    var netIncome = income - totalFees;
+
+    var niInc = document.getElementById('displayIncome');
+    var niTFees = document.getElementById('displayTodayFees');
+    var niNI = document.getElementById('displayNetIncome');
+    var niBox = document.getElementById('netIncomeBox');
+    var niStatus = document.getElementById('netIncomeStatus');
+
+    if (!niNI) return;
+
+    if (niInc) { niInc.textContent = '₱' + fmt(income); niInc.style.color = income > 0 ? '#10b981' : income < 0 ? '#ef4444' : '#374151'; }
+    if (niTFees) niTFees.textContent = '₱' + fmt(totalFees);
+    niNI.textContent = '₱' + fmt(netIncome);
+
+    if (netIncome > 0) {
+        niBox.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        niBox.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.35)';
+        niStatus.textContent = '🟢 You are at a PROFIT!';
+        niStatus.style.color = '#059669';
+    } else if (netIncome < 0) {
+        niBox.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+        niBox.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.35)';
+        niStatus.textContent = '🔴 You are at a LOSS.';
+        niStatus.style.color = '#dc2626';
+    } else {
+        niBox.style.background = 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+        niBox.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
+        niStatus.textContent = '⚪ Break even.';
+        niStatus.style.color = '#6b7280';
+    }
+}
+
 window.onload = function() { initializeFirebase(); };
     </script>
 </body>
