@@ -765,6 +765,20 @@
             <button class="btn btn-warning" onclick="changeAdminPassword()">🔒 Change Password</button>
         </div>
 
+        <!-- Device UID -->
+        <div class="admin-card">
+            <h3>📱 Device UID</h3>
+            <p class="section-hint">This is your <strong>Firebase Auth UID</strong>. Add it to your <code>allowedUids</code> node in the Firebase Realtime Database to grant this device access.</p>
+            <div style="background:#f2f2f7; border-radius:12px; padding:14px 16px; display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                <span id="deviceUidDisplay" style="font-family:monospace; font-size:13px; color:#1c1c1e; word-break:break-all; flex:1; user-select:all;">Signing in...</span>
+                <button onclick="copyDeviceUid()" style="flex-shrink:0; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:10px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer;">📋 Copy</button>
+            </div>
+            <div style="background:#e0f2fe; border-radius:10px; padding:11px 14px; font-size:12px; color:#1e40af; line-height:1.6;">
+                💡 In Firebase Console → Realtime Database → Data, create:<br>
+                <code style="font-size:11px;">allowedUids / <em>&lt;this UID&gt;</em> / true</code>
+            </div>
+        </div>
+
         <!-- Fee Config -->
         <div class="admin-card">
             <h3>💰 Fee Configuration</h3>
@@ -912,6 +926,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
 <script>
 // ============================================================
 // PWA MANIFEST INJECTION
@@ -1640,10 +1655,51 @@ function updateNetIncomeCard() {
 }
 
 // ============================================================
+// DEVICE UID (Firebase Auth Anonymous)
+// ============================================================
+function initFirebaseAuth() {
+    var auth = firebase.auth();
+    auth.onAuthStateChanged(function(user) {
+        if (user) {
+            displayDeviceUid(user.uid);
+        } else {
+            auth.signInAnonymously().catch(function(err) {
+                console.error('Anonymous auth failed:', err);
+                var el = document.getElementById('deviceUidDisplay');
+                if (el) el.textContent = 'Auth error: ' + err.message;
+            });
+        }
+    });
+}
+function displayDeviceUid(uid) {
+    var el = document.getElementById('deviceUidDisplay');
+    if (el) el.textContent = uid || 'Not signed in';
+}
+function copyDeviceUid() {
+    var el = document.getElementById('deviceUidDisplay');
+    var uid = el ? el.textContent : '';
+    if (!uid || uid === 'Not signed in') { showNotification('❌ UID not available yet', 'error'); return; }
+    navigator.clipboard.writeText(uid).then(function() {
+        showNotification('✅ Firebase UID copied!', 'success');
+    }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = uid; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showNotification('✅ Firebase UID copied!', 'success');
+    });
+}
+function regenerateDeviceUid() {
+    showNotification('ℹ️ UID is tied to your Firebase Auth session', 'info');
+}
+
+// ============================================================
 // INIT
 // ============================================================
 window.onload = function() {
     initializeFirebase();
+    initFirebaseAuth();
     updateClock();
     setInterval(updateClock, 30000);
 };
