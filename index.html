@@ -1649,9 +1649,9 @@ function updateNetIncomeCard() {
     if(niInc){niInc.textContent='₱'+fmt(income);niInc.style.color=income>0?'#10b981':income<0?'#ef4444':'#1c1c1e';}
     if(niTFees) niTFees.textContent='₱'+fmt(totalFees);
     niNI.textContent='₱'+fmt(netIncome);
-    if(netIncome>0){niBox.style.background='linear-gradient(135deg,#10b981,#059669)';niStatus.textContent='🟢 You are at a PROFIT!';niStatus.style.color='#059669';}
-    else if(netIncome<0){niBox.style.background='linear-gradient(135deg,#ef4444,#dc2626)';niStatus.textContent='🔴 You are at a LOSS.';niStatus.style.color='#dc2626';}
-    else{niBox.style.background='linear-gradient(135deg,#6b7280,#4b5563)';niStatus.textContent='⚪ Break even.';niStatus.style.color='#6b7280';}
+    if(netIncome>0){niBox.style.background='linear-gradient(135deg,#10b981,#059669)';niStatus.textContent='🟢 EXCESS';niStatus.style.color='#059669';}
+    else if(netIncome<0){niBox.style.background='linear-gradient(135deg,#ef4444,#dc2626)';niStatus.textContent='🔴 LAPSE';niStatus.style.color='#dc2626';}
+    else{niBox.style.background='linear-gradient(135deg,#6b7280,#4b5563)';niStatus.textContent='⚪ BALANCE';niStatus.style.color='#6b7280';}
 }
 
 // ============================================================
@@ -1706,3 +1706,4 @@ window.onload = function() {
 </script>
 </body>
 </html>
+
