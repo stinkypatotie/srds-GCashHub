@@ -49,7 +49,9 @@
         }
         .app-header img.banner {
             width: 100%;
-            height: auto;
+            height: 160px;
+            object-fit: cover;
+            object-position: center center;
             display: block;
         }
 
@@ -60,7 +62,7 @@
             flex: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding-top: calc(env(safe-area-inset-top, 0px) + 29.91vw);
+            padding-top: calc(env(safe-area-inset-top, 0px) + 160px);
             padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 68px);
             padding-left: 0;
             padding-right: 0;
