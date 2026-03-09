@@ -1329,14 +1329,20 @@ function calculateFee() {
     var amount=parseFloat(document.getElementById('amount').value)||0;
     var fee=0;
     if(currentTransactionType==='CASH IN'||currentTransactionType==='CASH OUT'){
-        if(amount>10000){
-            var remainder=amount-10000;
-            var rFee=feeSchedule[feeSchedule.length-1].fee;
-            for(var i=0;i<feeSchedule.length;i++) if(remainder>=feeSchedule[i].from&&remainder<=feeSchedule[i].to){rFee=feeSchedule[i].fee;break;}
-            fee=100+rFee;
+        var maxTo=feeSchedule[feeSchedule.length-1].to;
+        var maxFee=feeSchedule[feeSchedule.length-1].fee;
+        if(amount>maxTo){
+            var layers=Math.floor(amount/maxTo);
+            var remainder=amount%maxTo;
+            fee=layers*maxFee;
+            if(remainder>0){
+                var rFee=0;
+                for(var i=0;i<feeSchedule.length;i++) if(remainder>=feeSchedule[i].from&&remainder<=feeSchedule[i].to){rFee=feeSchedule[i].fee;break;}
+                fee+=rFee;
+            }
         } else {
             for(var j=0;j<feeSchedule.length;j++) if(amount>=feeSchedule[j].from&&amount<=feeSchedule[j].to){fee=feeSchedule[j].fee;break;}
-            if(amount>feeSchedule[feeSchedule.length-1].to) fee=feeSchedule[feeSchedule.length-1].fee;
+            if(amount>maxTo) fee=maxFee;
         }
     } else if(currentTransactionType==='MOBILE LOAD'){
         fee=mobileLoadFee;
