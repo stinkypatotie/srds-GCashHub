@@ -396,6 +396,7 @@
         }
         .admin-content {
             padding-bottom: env(safe-area-inset-bottom, 20px);
+            padding-right: 52px;
         }
 
         /* Admin section cards */
@@ -529,8 +530,55 @@
         .funds-grid .admin-form-row { margin-bottom: 0; }
 
         /* ============================================================
-           MISC
+           ADMIN SIDENAV
         ============================================================ */
+        .admin-sidenav {
+            position: fixed;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 60;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            padding: 6px 4px;
+            background: rgba(31,41,55,0.92);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 14px 0 0 14px;
+            box-shadow: -3px 0 16px rgba(0,0,0,0.2);
+        }
+        #adminPage.open ~ * .admin-sidenav,
+        #adminPage.open .admin-sidenav { display: flex; }
+        .admin-sidenav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 42px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.65);
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .admin-sidenav-btn span.snav-label {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            margin-top: 1px;
+            line-height: 1;
+            text-transform: uppercase;
+        }
+        .admin-sidenav-btn:active,
+        .admin-sidenav-btn.active { background: rgba(102,126,234,0.5); color: white; }
+
         .hidden { display: none !important; }
         .section-hint { font-size: 12px; color: #8e8e93; margin-bottom: 12px; line-height: 1.5; }
         .warning-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; color: #78350f; line-height: 1.5; }
@@ -729,7 +777,33 @@
 
     <div class="admin-content">
 
+        <!-- ===== ADMIN SIDE NAVIGATION ===== -->
+        <div class="admin-sidenav" id="adminSidenav">
+            <button class="admin-sidenav-btn" onclick="adminNavTo('ac-telegram')" title="Telegram">
+                <span>📱</span><span class="snav-label">TG</span>
+            </button>
+            <button class="admin-sidenav-btn" onclick="adminNavTo('ac-password')" title="Password">
+                <span>🔐</span><span class="snav-label">PW</span>
+            </button>
+            <button class="admin-sidenav-btn" onclick="adminNavTo('ac-uid')" title="Device UID">
+                <span>🪪</span><span class="snav-label">UID</span>
+            </button>
+            <button class="admin-sidenav-btn" onclick="adminNavTo('ac-fees')" title="Fees">
+                <span>💰</span><span class="snav-label">Fees</span>
+            </button>
+            <button class="admin-sidenav-btn" onclick="adminNavTo('ac-cash')" title="Cash Counter">
+                <span>💵</span><span class="snav-label">Cash</span>
+            </button>
+            <button class="admin-sidenav-btn" onclick="adminNavTo('ac-funds')" title="Funds">
+                <span>🏦</span><span class="snav-label">Fund</span>
+            </button>
+            <button class="admin-sidenav-btn" onclick="adminNavTo('ac-verify')" title="Verify">
+                <span>✅</span><span class="snav-label">Txn</span>
+            </button>
+        </div>
+
         <!-- Telegram Config -->
+        <div id="ac-telegram" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>📱 Telegram Configuration</h3>
             <div class="admin-form-row"><label>Bot Token</label><input type="text" id="telegramBotToken" placeholder="123456:ABC-DEF..."></div>
@@ -741,7 +815,8 @@
         </div>
 
         <!-- Change Password -->
-        <div class="admin-card">
+        <div id="ac-password" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div class="admin-card" id="ac-password-card">
             <h3>🔐 Change Admin Password</h3>
             <div class="admin-form-row"><label>Current Password</label><input type="password" id="currentPassword" placeholder="Current password"></div>
             <div class="admin-form-row"><label>New Password</label><input type="password" id="newPassword" placeholder="New password (min 6 chars)"></div>
@@ -750,6 +825,7 @@
         </div>
 
         <!-- Device UID -->
+        <div id="ac-uid" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>📱 Device UID</h3>
             <p class="section-hint">This is your <strong>Firebase Auth UID</strong>. Add it to your <code>allowedUids</code> node in the Firebase Realtime Database to grant this device access.</p>
@@ -764,6 +840,7 @@
         </div>
 
         <!-- Fee Config -->
+        <div id="ac-fees" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>💰 Fee Configuration</h3>
             <h4>Cash In & Cash Out Brackets</h4>
@@ -790,6 +867,7 @@
         </div>
 
         <!-- Cash on Hand Counter -->
+        <div id="ac-cash" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card" id="denominationCard">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <h3 style="margin-bottom:0;">💵 Cash on Hand Counter</h3>
@@ -836,6 +914,7 @@
         </div>
 
         <!-- Current Funds -->
+        <div id="ac-funds" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>💰 Current Funds</h3>
             <div class="funds-grid">
@@ -865,6 +944,7 @@
         </div>
 
         <!-- Transaction Verification -->
+        <div id="ac-verify" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>✅ Transaction Verification</h3>
             <div class="filter-box">
@@ -874,7 +954,8 @@
                 </div>
                 <div class="filter-btns">
                     <button class="btn btn-info btn-small" onclick="filterToday()">Today</button>
-                    <button class="btn btn-secondary btn-small" onclick="clearDateFilter()">Clear</button>
+                    <button class="btn btn-primary btn-small" onclick="filterThisMonth()">This Month</button>
+                    <button class="btn btn-secondary btn-small" onclick="clearDateFilter()">All</button>
                 </div>
             </div>
             <div class="admin-stats" style="margin-bottom:14px;">
@@ -1270,7 +1351,7 @@ function adminLogin() {
         closeAdminLogin();
         showNotification('✅ Welcome, Admin!');
         renderFeeTable(); initDenomCounter();
-        loadFundsData(); loadTelegramConfig(); loadFeeSchedule();
+        loadFundsData(); loadTelegramConfig(); loadFeeSchedule(); filterToday();
     } else {
         showNotification('❌ Invalid code','error');
     }
@@ -1568,6 +1649,15 @@ function updateVerificationTable() {
     updateNetIncomeCard();
 }
 function filterToday(){ var t=new Date().toISOString().split('T')[0]; document.getElementById('filterFromDate').value=t; document.getElementById('filterToDate').value=t; updateVerificationTable(); }
+function filterThisMonth(){
+    var now=new Date();
+    var y=now.getFullYear(), m=now.getMonth();
+    var first=new Date(y,m,1).toISOString().split('T')[0];
+    var last=new Date(y,m+1,0).toISOString().split('T')[0];
+    document.getElementById('filterFromDate').value=first;
+    document.getElementById('filterToDate').value=last;
+    updateVerificationTable();
+}
 function clearDateFilter(){ document.getElementById('filterFromDate').value=''; document.getElementById('filterToDate').value=''; updateVerificationTable(); }
 
 // ============================================================
@@ -1681,8 +1771,24 @@ function regenerateDeviceUid() {
 }
 
 // ============================================================
-// INIT
+// ADMIN SIDENAV
 // ============================================================
+function adminNavTo(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({behavior:'smooth', block:'start'});
+    // Highlight active button briefly
+    var btns = document.querySelectorAll('.admin-sidenav-btn');
+    btns.forEach(function(b){ b.classList.remove('active'); });
+    var map = {'ac-telegram':0,'ac-password':1,'ac-uid':2,'ac-fees':3,'ac-cash':4,'ac-funds':5,'ac-verify':6};
+    var idx = map[id];
+    if (idx !== undefined && btns[idx]) {
+        btns[idx].classList.add('active');
+        setTimeout(function(){ btns[idx].classList.remove('active'); }, 800);
+    }
+}
+
+
 window.onload = function() {
     initializeFirebase();
     initFirebaseAuth();
