@@ -585,7 +585,43 @@
         .empty-state { text-align: center; color: #8e8e93; padding: 32px 16px; font-size: 14px; }
         .empty-state .empty-icon { font-size: 40px; margin-bottom: 10px; }
         #historyDateLabel { font-size: 12px; color: #8e8e93; font-weight: 500; }
-    </style>
+/* ===== Thermal Receipt Print (Vozy P50: 58mm paper / 48mm print width / 203dpi) ===== */
+#thermalPrintArea { display:none; }
+@media print {
+    @page { size: 58mm auto; margin: 0; }
+    html, body { width: 48mm; }
+    body * { visibility: hidden; }
+    #thermalPrintArea, #thermalPrintArea * { visibility: visible; }
+    #thermalPrintArea {
+        display: block;
+        position: absolute;
+        top: 0; left: 0;
+        width: 48mm;
+        padding: 2mm 0;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.55;
+        color: #000;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        -webkit-font-smoothing: none;
+        text-rendering: optimizeSpeed;
+    }
+    #thermalPrintArea * {
+        color: #000 !important;
+        font-weight: 900 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    #thermalPrintArea .tp-center { text-align:center; }
+    #thermalPrintArea .tp-bold { font-weight:900 !important; }
+    #thermalPrintArea .tp-line { border-top:2px dashed #000; margin:5px 0; }
+    #thermalPrintArea .tp-row { display:flex; justify-content:space-between; gap:4px; }
+    #thermalPrintArea .tp-total { font-size:18px; font-weight:900 !important; }
+    #thermalPrintArea .tp-sm { font-size:13px; }
+}
+</style>
 </head>
 <body>
 
@@ -756,9 +792,24 @@
             <div class="receipt-row-item" style="margin-top:4px;"><span>Tendered</span><span id="receiptTendered"></span></div>
             <div class="receipt-row-item"><span>Change</span><span id="receiptChange" style="color:#10b981; font-weight:700;"></span></div>
         </div>
-        <button class="btn btn-primary" onclick="closeReceipt()">Done</button>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:4px;">
+            <button class="btn btn-primary" onclick="closeReceipt()">Done</button>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" onclick="sendReceiptToMessenger()" style="flex:1; background:#3a3a3c; color:#fff; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    Copy Receipt
+                </button>
+                <button class="btn" onclick="printReceiptThermal()" style="flex:1; background:#3a3a3c; color:#fff; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+                    Print Receipt
+                </button>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Hidden print-only area, rendered for thermal printer output -->
+<div id="thermalPrintArea"></div>
 
 <!-- ============================================================
      ADMIN PAGE (full-page overlay)
@@ -1495,7 +1546,9 @@ function confirmTransaction() {
 // ============================================================
 // RECEIPT SHEET
 // ============================================================
+var _currentReceiptTx = null;
 function displayReceipt(tx) {
+    _currentReceiptTx = tx;
     document.getElementById('receiptDate').textContent=tx.timestamp;
     document.getElementById('receiptType').textContent=tx.type;
     document.getElementById('receiptAmount').textContent='₱'+fmt(tx.amount);
@@ -1519,6 +1572,68 @@ function closeReceipt() {
     document.getElementById('receiptSheet').classList.remove('open');
 }
 function newTransaction(){ closeReceipt(); }
+function buildReceiptText(tx) {
+    var lines = [];
+    lines.push('🧾 GCash Hub Receipt');
+    lines.push('📅 ' + tx.timestamp);
+    lines.push('');
+    lines.push('Type: ' + tx.type);
+    lines.push('Amount: ₱' + fmt(tx.amount));
+    lines.push('Fee: ₱' + fmt(tx.fee));
+    if (tx.type === 'CASH OUT' && tx.feeHandling) {
+        var feeLabel = tx.feeHandling === 'add'
+            ? 'Added (Paid ₱' + fmt(tx.customerPays) + ', Received ₱' + fmt(tx.customerReceives) + ')'
+            : 'Deducted (Paid ₱' + fmt(tx.customerPays) + ', Received ₱' + fmt(tx.customerReceives) + ')';
+        lines.push('Fee Method: ' + feeLabel);
+    }
+    if (tx.remarks) lines.push('Remarks: ' + tx.remarks);
+    lines.push('');
+    lines.push('TOTAL: ₱' + fmt(tx.total));
+    lines.push('Tendered: ₱' + fmt(tx.tendered || 0));
+    lines.push('Change: ₱' + fmt(tx.change || 0));
+    return lines.join('\n');
+}
+function sendReceiptToMessenger() {
+    var tx = _currentReceiptTx;
+    if (!tx) return;
+    var text = buildReceiptText(tx);
+    navigator.clipboard.writeText(text).then(function() {
+        showNotification('📋 Receipt copied to clipboard!', 'success');
+    }).catch(function() {
+        showNotification('❌ Could not copy receipt.', 'error');
+    });
+}
+function printReceiptThermal() {
+    var tx = _currentReceiptTx;
+    if (!tx) return;
+    var html = '';
+    html += '<div class="tp-center tp-bold" style="font-size:13px;">GCASH HUB</div>';
+    html += '<div class="tp-center">Transaction Receipt</div>';
+    html += '<div class="tp-center tp-sm">' + tx.timestamp + '</div>';
+    html += '<div class="tp-line"></div>';
+    html += '<div class="tp-row"><span>Type</span><span class="tp-bold">' + tx.type + '</span></div>';
+    html += '<div class="tp-row"><span>Amount</span><span>₱' + fmt(tx.amount) + '</span></div>';
+    html += '<div class="tp-row"><span>Fee</span><span>₱' + fmt(tx.fee) + '</span></div>';
+    if (tx.type === 'CASH OUT' && tx.feeHandling) {
+        var feeLabel = tx.feeHandling === 'add' ? 'Added' : 'Deducted';
+        html += '<div class="tp-row tp-sm"><span>Fee Method</span><span>' + feeLabel + '</span></div>';
+        html += '<div class="tp-row tp-sm"><span>Customer Paid</span><span>₱' + fmt(tx.customerPays) + '</span></div>';
+        html += '<div class="tp-row tp-sm"><span>Customer Got</span><span>₱' + fmt(tx.customerReceives) + '</span></div>';
+    }
+    if (tx.remarks) {
+        html += '<div class="tp-line"></div>';
+        html += '<div class="tp-sm">Remarks: ' + tx.remarks + '</div>';
+    }
+    html += '<div class="tp-line"></div>';
+    html += '<div class="tp-row tp-total"><span>TOTAL</span><span>₱' + fmt(tx.total) + '</span></div>';
+    html += '<div class="tp-line"></div>';
+    html += '<div class="tp-row"><span>Tendered</span><span>₱' + fmt(tx.tendered || 0) + '</span></div>';
+    html += '<div class="tp-row"><span>Change</span><span>₱' + fmt(tx.change || 0) + '</span></div>';
+    html += '<div class="tp-line"></div>';
+    html += '<div class="tp-center tp-sm">Thank you!</div>';
+    document.getElementById('thermalPrintArea').innerHTML = html;
+    window.print();
+}
 
 // ============================================================
 // TELEGRAM
