@@ -1539,7 +1539,8 @@ function confirmTransaction() {
         sendToTelegram(tx);
         closeTxnSheet();
         displayReceipt(tx);
-        loadTransactions();
+        // No manual reload needed — the realtime listener on 'transactions' already
+        // refreshes the table the moment this write lands.
     }).catch(function(e){ showNotification('❌ Failed: '+e.message,'error'); });
 }
 
@@ -1672,13 +1673,15 @@ function initializeFirebase() {
 }
 
 function loadTransactions() {
-    database.ref('transactions').once('value').then(function(snap){
+    // Realtime listener: fires immediately with current data, then again on every
+    // add/edit/delete under 'transactions' — so open admin tabs auto-update for auditing.
+    database.ref('transactions').on('value', function(snap){
         transactions=[];
         snap.forEach(function(child){ var tx=child.val(); tx.id=child.key; transactions.push(tx); });
         transactions.sort(function(a,b){ return new Date(b.timestamp)-new Date(a.timestamp); });
         updateHistoryTable();
         updateVerificationTable();
-    }).catch(function(){ showNotification('❌ Failed to load transactions','error'); });
+    }, function(){ showNotification('❌ Failed to load transactions','error'); });
 }
 
 // ============================================================
