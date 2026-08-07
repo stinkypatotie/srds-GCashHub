@@ -377,13 +377,27 @@
             color: white;
             padding: env(safe-area-inset-top, 44px) 16px 16px;
             display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
+            flex-direction: column;
             position: sticky;
             top: 0;
             z-index: 50;
         }
+        .admin-header-top { display: flex; align-items: flex-end; justify-content: space-between; }
         .admin-header h1 { font-size: 22px; font-weight: 700; color: white; }
+        .ni-mini-bar {
+            margin-top: 10px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            transition: background 0.2s;
+        }
+        .ni-mini-bar .ni-mini-label { font-size: 11px; font-weight: 700; opacity: 0.85; letter-spacing: 0.3px; }
+        .ni-mini-bar .ni-mini-amount { font-size: 19px; font-weight: 800; letter-spacing: -0.5px; }
+        .ni-mini-bar .ni-mini-status { font-size: 11px; font-weight: 700; }
         .admin-back {
             background: rgba(255,255,255,0.15);
             border: none;
@@ -816,13 +830,24 @@
 ============================================================ -->
 <div id="adminPage">
     <div class="admin-header">
-        <div>
-            <h1>🔧 Admin Panel</h1>
-            <div style="font-size:12px; opacity:0.7; margin-top:2px;" id="userDisplay"></div>
+        <div class="admin-header-top">
+            <div>
+                <h1>🔧 Admin Panel</h1>
+                <div style="font-size:12px; opacity:0.7; margin-top:2px;" id="userDisplay"></div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button class="admin-back" onclick="goToMainPage()">← Back</button>
+                <button class="admin-back" style="background:rgba(239,68,68,0.7);" onclick="logout()">Logout</button>
+            </div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
-            <button class="admin-back" onclick="goToMainPage()">← Back</button>
-            <button class="admin-back" style="background:rgba(239,68,68,0.7);" onclick="logout()">Logout</button>
+        <div class="ni-mini-bar" id="niMiniBar" onclick="adminNavTo('ac-funds')" title="Jump to Net Income">
+            <div>
+                <div class="ni-mini-label">💹 NET INCOME</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="ni-mini-status" id="niMiniStatus"></span>
+                <span class="ni-mini-amount" id="niMiniAmount">₱0.00</span>
+            </div>
         </div>
     </div>
 
@@ -854,7 +879,7 @@
         </div>
 
         <!-- Telegram Config -->
-        <div id="ac-telegram" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div id="ac-telegram" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>📱 Telegram Configuration</h3>
             <div class="admin-form-row"><label>Bot Token</label><input type="text" id="telegramBotToken" placeholder="123456:ABC-DEF..."></div>
@@ -866,7 +891,7 @@
         </div>
 
         <!-- Change Password -->
-        <div id="ac-password" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div id="ac-password" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card" id="ac-password-card">
             <h3>🔐 Change Admin Password</h3>
             <div class="admin-form-row"><label>Current Password</label><input type="password" id="currentPassword" placeholder="Current password"></div>
@@ -876,7 +901,7 @@
         </div>
 
         <!-- Device UID -->
-        <div id="ac-uid" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div id="ac-uid" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>📱 Device UID</h3>
             <p class="section-hint">This is your <strong>Firebase Auth UID</strong>. Add it to your <code>allowedUids</code> node in the Firebase Realtime Database to grant this device access.</p>
@@ -891,7 +916,7 @@
         </div>
 
         <!-- Fee Config -->
-        <div id="ac-fees" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div id="ac-fees" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>💰 Fee Configuration</h3>
             <h4>Cash In & Cash Out Brackets</h4>
@@ -918,7 +943,7 @@
         </div>
 
         <!-- Cash on Hand Counter -->
-        <div id="ac-cash" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div id="ac-cash" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card" id="denominationCard">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <h3 style="margin-bottom:0;">💵 Cash on Hand Counter</h3>
@@ -965,7 +990,7 @@
         </div>
 
         <!-- Current Funds -->
-        <div id="ac-funds" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div id="ac-funds" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>💰 Current Funds</h3>
             <div class="funds-grid">
@@ -995,7 +1020,7 @@
         </div>
 
         <!-- Transaction Verification -->
-        <div id="ac-verify" style="position:relative;top:-72px;visibility:hidden;pointer-events:none;"></div>
+        <div id="ac-verify" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>✅ Transaction Verification</h3>
             <div class="filter-box">
@@ -1839,6 +1864,10 @@ function updateNetIncomeCard() {
     var niBox=document.getElementById('netIncomeBox');
     var niStatus=document.getElementById('netIncomeStatus');
 
+    var miniAmount=document.getElementById('niMiniAmount');
+    var miniBar=document.getElementById('niMiniBar');
+    var miniStatus=document.getElementById('niMiniStatus');
+
     if(!niNI) return;
     if(niInc){niInc.textContent='₱'+fmt(income);niInc.style.color=income>0?'#10b981':income<0?'#ef4444':'#1c1c1e';}
     if(niTFees) niTFees.textContent='₱'+fmt(totalFees);
@@ -1846,6 +1875,14 @@ function updateNetIncomeCard() {
     if(netIncome>0){niBox.style.background='linear-gradient(135deg,#10b981,#059669)';niStatus.textContent='🟢 EXCESS';niStatus.style.color='#059669';}
     else if(netIncome<0){niBox.style.background='linear-gradient(135deg,#ef4444,#dc2626)';niStatus.textContent='🔴 LAPSE';niStatus.style.color='#dc2626';}
     else{niBox.style.background='linear-gradient(135deg,#6b7280,#4b5563)';niStatus.textContent='⚪ BALANCE';niStatus.style.color='#6b7280';}
+
+    // Keep the sticky mini bar (always visible in the admin header) in sync too
+    if(miniAmount) miniAmount.textContent='₱'+fmt(netIncome);
+    if(miniBar && miniStatus){
+        if(netIncome>0){miniBar.style.background='linear-gradient(135deg,#10b981,#059669)';miniStatus.textContent='🟢';}
+        else if(netIncome<0){miniBar.style.background='linear-gradient(135deg,#ef4444,#dc2626)';miniStatus.textContent='🔴';}
+        else{miniBar.style.background='linear-gradient(135deg,#6b7280,#4b5563)';miniStatus.textContent='⚪';}
+    }
 }
 
 // ============================================================
