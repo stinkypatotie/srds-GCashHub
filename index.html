@@ -396,6 +396,7 @@
             transition: background 0.2s;
         }
         .ni-mini-bar .ni-mini-label { font-size: 11px; font-weight: 700; opacity: 0.85; letter-spacing: 0.3px; }
+        .ni-mini-bar .ni-mini-fees { font-size: 11px; opacity: 0.75; margin-top: 2px; }
         .ni-mini-bar .ni-mini-amount { font-size: 19px; font-weight: 800; letter-spacing: -0.5px; }
         .ni-mini-bar .ni-mini-status { font-size: 11px; font-weight: 700; }
         .admin-back {
@@ -843,6 +844,7 @@
         <div class="ni-mini-bar" id="niMiniBar" onclick="adminNavTo('ac-funds')" title="Jump to Net Income">
             <div>
                 <div class="ni-mini-label">💹 NET INCOME</div>
+                <div class="ni-mini-fees">Fees: <span id="niMiniFees">₱0.00</span></div>
             </div>
             <div style="display:flex; align-items:center; gap:10px;">
                 <span class="ni-mini-status" id="niMiniStatus"></span>
@@ -1888,6 +1890,7 @@ function updateNetIncomeCard() {
     var miniAmount=document.getElementById('niMiniAmount');
     var miniBar=document.getElementById('niMiniBar');
     var miniStatus=document.getElementById('niMiniStatus');
+    var miniFees=document.getElementById('niMiniFees');
 
     if(!niNI) return;
     if(niInc){niInc.textContent='₱'+fmt(income);niInc.style.color=income>0?'#10b981':income<0?'#ef4444':'#1c1c1e';}
@@ -1899,6 +1902,7 @@ function updateNetIncomeCard() {
 
     // Keep the sticky mini bar (always visible in the admin header) in sync too
     if(miniAmount) miniAmount.textContent='₱'+fmt(netIncome);
+    if(miniFees) miniFees.textContent='₱'+fmt(totalFees);
     if(miniBar && miniStatus){
         if(netIncome>0){miniBar.style.background='linear-gradient(135deg,#10b981,#059669)';miniStatus.textContent='🟢';}
         else if(netIncome<0){miniBar.style.background='linear-gradient(135deg,#ef4444,#dc2626)';miniStatus.textContent='🔴';}
