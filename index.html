@@ -848,14 +848,6 @@
                 <span class="ni-mini-status" id="niMiniStatus"></span>
                 <span class="ni-mini-amount" id="niMiniAmount">₱0.00</span>
             </div>
-			
-			<div>
-                <div class="ni-mini-label">TOTAL FEES</div>
-            </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span class="ni-mini-status" id="niMiniStatus"></span>
-                <span class="ni-mini-amount" id="verifyTotalFees">₱0.00</span>
-            </div>
         </div>
     </div>
 
@@ -883,6 +875,9 @@
             </button>
             <button class="admin-sidenav-btn" onclick="adminNavTo('ac-verify')" title="Verify">
                 <span>✅</span><span class="snav-label">Txn</span>
+            </button>
+            <button class="admin-sidenav-btn" onclick="exportSummaryImage()" title="Save as Image">
+                <span>📸</span><span class="snav-label">Save</span>
             </button>
         </div>
 
@@ -1055,6 +1050,23 @@
         </div>
 
     </div><!-- /admin-content -->
+
+    <!-- Off-screen template used to render the exportable summary image (see exportSummaryImage()) -->
+    <div id="exportImageContainer" style="position:fixed; left:-9999px; top:0; width:420px; background:#ffffff; font-family:-apple-system, 'Helvetica Neue', Arial, sans-serif; padding:24px; color:#1c1c1e;">
+        <div style="text-align:center; margin-bottom:18px;">
+            <div style="font-size:20px; font-weight:800;">GCash Hub — Summary</div>
+            <div id="exportGeneratedAt" style="font-size:12px; color:#8e8e93; margin-top:4px;"></div>
+        </div>
+
+        <div style="font-size:15px; font-weight:800; color:#374151; border-bottom:2px solid #e5e5ea; padding-bottom:6px; margin-bottom:10px;">💵 Cash on Hand Counter</div>
+        <div id="exportCashSection" style="margin-bottom:20px; font-size:13px;"></div>
+
+        <div style="font-size:15px; font-weight:800; color:#374151; border-bottom:2px solid #e5e5ea; padding-bottom:6px; margin-bottom:10px;">💰 Current Funds</div>
+        <div id="exportFundsSection" style="margin-bottom:20px; font-size:13px;"></div>
+
+        <div style="font-size:15px; font-weight:800; color:#374151; border-bottom:2px solid #e5e5ea; padding-bottom:6px; margin-bottom:10px;">✅ Transactions</div>
+        <div id="exportTxnSection" style="font-size:12px;"></div>
+    </div>
 </div><!-- /adminPage -->
 
 <!-- ============================================================
@@ -1076,6 +1088,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 // ============================================================
 // PWA MANIFEST INJECTION
@@ -1949,6 +1962,114 @@ function adminNavTo(id) {
         btns[idx].classList.add('active');
         setTimeout(function(){ btns[idx].classList.remove('active'); }, 800);
     }
+}
+
+// ============================================================
+// EXPORT SUMMARY AS JPG (Cash Counter + Current Funds + Transactions)
+// ============================================================
+function exportSummaryImage() {
+    if (!isAdmin) { showNotification('❌ Admin only', 'error'); return; }
+    if (typeof html2canvas === 'undefined') { showNotification('❌ Export library not loaded', 'error'); return; }
+
+    var now = new Date();
+    document.getElementById('exportGeneratedAt').textContent = 'Generated ' + now.toLocaleString();
+
+    // ---- Cash on Hand Counter section ----
+    var cashRows = '';
+    var billsSubtotal = 0, coinsSubtotal = 0, otherSubtotal = 0;
+    for (var i=0;i<BILL_DENOMS.length;i++) {
+        var d=BILL_DENOMS[i], el=document.getElementById('denom_bill_'+d);
+        var qty = el ? (parseInt(el.value)||0) : 0;
+        if (qty>0) { var sub=qty*d; billsSubtotal+=sub;
+            cashRows += exportRow('₱'+d.toLocaleString()+' x '+qty, '₱'+fmt(sub));
+        }
+    }
+    for (var j=0;j<COIN_DENOMS.length;j++) {
+        var dc=COIN_DENOMS[j], elc=document.getElementById('denom_coin_'+dc);
+        var qtyc = elc ? (parseInt(elc.value)||0) : 0;
+        if (qtyc>0) { var subc=qtyc*dc; coinsSubtotal+=subc;
+            cashRows += exportRow('₱'+dc.toLocaleString()+' coin x '+qtyc, '₱'+fmt(subc));
+        }
+    }
+    var otherContainer = document.getElementById('otherFundsContainer');
+    var otherRows = otherContainer ? otherContainer.querySelectorAll('.other-funds-row') : [];
+    for (var k=0;k<otherRows.length;k++) {
+        var amtInput = otherRows[k].querySelector('input[type="number"]');
+        var rmkInput = otherRows[k].querySelector('input[type="text"]');
+        var amtVal = amtInput ? (parseFloat(amtInput.value)||0) : 0;
+        if (amtVal>0) { otherSubtotal+=amtVal;
+            cashRows += exportRow((rmkInput&&rmkInput.value?rmkInput.value:'Other fund'), '₱'+fmt(amtVal));
+        }
+    }
+    if (!cashRows) cashRows = '<div style="color:#8e8e93; padding:6px 0;">No denominations counted</div>';
+    var cashGrandTotal = billsSubtotal+coinsSubtotal+otherSubtotal;
+    cashRows += exportRow('Bills Total', '₱'+fmt(billsSubtotal), true);
+    cashRows += exportRow('Coins Total', '₱'+fmt(coinsSubtotal), true);
+    cashRows += exportRow('Other Funds Total', '₱'+fmt(otherSubtotal), true);
+    cashRows += exportRow('CASH ON HAND', '₱'+fmt(cashGrandTotal), true, true);
+    document.getElementById('exportCashSection').innerHTML = cashRows;
+
+    // ---- Current Funds section ----
+    var digital = parseFloat(document.getElementById('digitalFund').value)||0;
+    var cash = parseFloat(document.getElementById('cashFund').value)||0;
+    var total = digital+cash;
+    var initial = fundsData.initialFunds||0;
+    var income = total-initial;
+    var source = (window.filtered && window.filtered.length>=0) ? window.filtered : transactions;
+    var totalFees = 0;
+    for (var f=0; f<source.length; f++) totalFees += source[f].fee||0;
+    var netIncome = income-totalFees;
+    var fundsHtml = '';
+    fundsHtml += exportRow('Digital Fund (GCash)', '₱'+fmt(digital));
+    fundsHtml += exportRow('Cash Fund (Physical)', '₱'+fmt(cash));
+    fundsHtml += exportRow('Total Funds', '₱'+fmt(total), true);
+    fundsHtml += exportRow('Initial Funds', '₱'+fmt(initial));
+    fundsHtml += exportRow('Income/Loss (Total − Initial)', '₱'+fmt(income));
+    fundsHtml += exportRow('Fees Earned (per date filter)', '₱'+fmt(totalFees));
+    fundsHtml += exportRow('NET INCOME', '₱'+fmt(netIncome), true, true);
+    document.getElementById('exportFundsSection').innerHTML = fundsHtml;
+
+    // ---- Transactions section (respects the current verification date filter) ----
+    var txnHtml = '';
+    if (source.length===0) {
+        txnHtml = '<div style="color:#8e8e93; padding:6px 0;">No transactions in the selected range</div>';
+    } else {
+        txnHtml += '<div style="display:flex; font-weight:700; color:#667eea; border-bottom:1px solid #e5e5ea; padding:4px 0;">'
+                 + '<span style="flex:2;">Date/Type</span><span style="flex:1; text-align:right;">Amount</span>'
+                 + '<span style="flex:1; text-align:right;">Fee</span><span style="flex:1; text-align:right;">Total</span></div>';
+        for (var t=0; t<source.length; t++) {
+            var tx = source[t];
+            txnHtml += '<div style="display:flex; padding:4px 0; border-bottom:1px solid #f2f2f7;">'
+                     + '<span style="flex:2;">'+tx.timestamp+'<br><span style="color:#8e8e93;">'+tx.type+'</span></span>'
+                     + '<span style="flex:1; text-align:right;">₱'+fmt(tx.amount)+'</span>'
+                     + '<span style="flex:1; text-align:right;">₱'+fmt(tx.fee)+'</span>'
+                     + '<span style="flex:1; text-align:right; font-weight:700;">₱'+fmt(tx.total)+'</span></div>';
+        }
+        txnHtml += '<div style="display:flex; padding:8px 0 0; font-weight:800;">'
+                 + '<span style="flex:3;">Total Fees</span><span style="flex:1; text-align:right; color:#667eea;">₱'+fmt(totalFees)+'</span></div>';
+    }
+    document.getElementById('exportTxnSection').innerHTML = txnHtml;
+
+    showNotification('⏳ Rendering image...', 'info');
+    var target = document.getElementById('exportImageContainer');
+    html2canvas(target, {scale:2, backgroundColor:'#ffffff', useCORS:true}).then(function(canvas){
+        var link = document.createElement('a');
+        var stamp = now.toISOString().slice(0,19).replace(/[:T]/g,'-');
+        link.download = 'gcash-hub-summary-'+stamp+'.jpg';
+        link.href = canvas.toDataURL('image/jpeg', 0.92);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showNotification('✅ Summary image saved!');
+    }).catch(function(e){
+        showNotification('❌ Export failed: '+e.message, 'error');
+    });
+}
+function exportRow(label, value, bold, highlight) {
+    var style = 'display:flex; justify-content:space-between; padding:4px 0;';
+    if (bold) style += 'font-weight:700; border-top:1px solid #e5e5ea; margin-top:2px; padding-top:6px;';
+    if (highlight) style += 'font-size:14px; color:#059669;';
+    return '<div style="'+style+'"><span>'+label+'</span><span>'+value+'</span></div>';
 }
 
 
