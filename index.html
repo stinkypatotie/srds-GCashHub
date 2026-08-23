@@ -778,7 +778,7 @@
 
         <div class="btn-row">
             <button class="btn btn-secondary" onclick="closeTxnSheet()">Cancel</button>
-            <button class="btn btn-success" onclick="confirmTransaction()">✓ Confirm</button>
+            <button class="btn btn-success" id="confirmTxnBtn" onclick="confirmTransaction()">✓ Confirm</button>
         </div>
     </div>
 </div>
@@ -1571,7 +1571,11 @@ function calculateChange() {
     document.getElementById('change').value=change.toFixed(2);
 }
 
+var _txnSubmitInProgress = false;
 function confirmTransaction() {
+    // Guard against double-submits: if a save is already in flight (e.g. slow/
+    // delayed connection), ignore extra taps instead of pushing a 2nd record.
+    if(_txnSubmitInProgress) return;
     var amount=parseFloat(document.getElementById('amount').value);
     if(!amount||amount<=0){showNotification('❌ Enter a valid amount','error');return;}
     var fee=parseFloat(document.getElementById('fee').value)||0;
@@ -1586,6 +1590,10 @@ function confirmTransaction() {
         tx.customerPays=method==='add'?amount+fee:amount;
         tx.customerReceives=method==='add'?amount:amount-fee;
     }
+    _txnSubmitInProgress = true;
+    var btn=document.getElementById('confirmTxnBtn');
+    var btnOrigText=btn?btn.textContent:null;
+    if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
     database.ref('transactions').push(tx).then(function(){
         showNotification('✅ Transaction saved!');
         sendToTelegram(tx);
@@ -1593,7 +1601,12 @@ function confirmTransaction() {
         displayReceipt(tx);
         // No manual reload needed — the realtime listener on 'transactions' already
         // refreshes the table the moment this write lands.
-    }).catch(function(e){ showNotification('❌ Failed: '+e.message,'error'); });
+    }).catch(function(e){
+        showNotification('❌ Failed: '+e.message,'error');
+    }).finally(function(){
+        _txnSubmitInProgress = false;
+        if(btn){ btn.disabled=false; btn.textContent=btnOrigText; }
+    });
 }
 
 // ============================================================
@@ -1736,6 +1749,16 @@ function loadTransactions() {
     }, function(){ showNotification('❌ Failed to load transactions','error'); });
 }
 
+function deleteTransaction(txId){
+    if(!txId){ showNotification('❌ Cannot delete: missing ID','error'); return; }
+    if(!confirm('Delete this transaction? This cannot be undone.')) return;
+    database.ref('transactions').child(txId).remove().then(function(){
+        showNotification('🗑️ Transaction deleted');
+        // No manual reload needed — the realtime listener on 'transactions' already
+        // picks up the removal and re-renders the list automatically.
+    }, function(){ showNotification('❌ Failed to delete transaction','error'); });
+}
+
 // ============================================================
 // HISTORY — mobile card list
 // ============================================================
@@ -1809,7 +1832,10 @@ function updateVerificationTable() {
         html+='<td>₱'+fmt(tx.tendered||0)+'</td>';
         html+='<td>₱'+fmt(tx.change||0)+'</td>';
         html+='<td>'+(tx.remarks||'-')+'</td>';
-        html+='<td><button class="btn btn-info btn-small" onclick="resendToTelegram(filtered['+i+'])">📤</button></td>';
+        html+='<td><div style="display:flex; gap:4px;">';
+        html+='<button class="btn btn-info btn-small" onclick="resendToTelegram(filtered['+i+'])">📤</button>';
+        html+='<button class="btn btn-danger btn-small" onclick="deleteTransaction(\''+tx.id+'\')">🗑️</button>';
+        html+='</div></td>';
         html+='</tr>';
     }
     tbody.innerHTML=html;
