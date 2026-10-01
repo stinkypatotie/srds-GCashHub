@@ -1746,9 +1746,8 @@ function loadTransactions() {
         transactions.sort(function(a,b){ return new Date(b.timestamp)-new Date(a.timestamp); });
         updateHistoryTable();
         updateVerificationTable();
-    }, function(err){
-    alert('Failed to load transactions: ' + (err.code || '') + ' ' + err.message);
-});
+    }, function(){ showNotification('❌ Failed to load transactions','error'); });
+
 
 
 function deleteTransaction(txId){
