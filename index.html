@@ -1746,9 +1746,10 @@ function loadTransactions() {
         transactions.sort(function(a,b){ return new Date(b.timestamp)-new Date(a.timestamp); });
         updateHistoryTable();
         updateVerificationTable();
-    }, function(){ showNotification('❌ Failed to load transactions','error'); });
-
-
+        }, function(err){
+        alert('Failed to load transactions: ' + (err.code || '') + ' ' + err.message);
+    });
+}
 
 function deleteTransaction(txId){
     if(!txId){ showNotification('❌ Cannot delete: missing ID','error'); return; }
@@ -2114,11 +2115,11 @@ function exportRow(label, value, bold, highlight) {
 
 
 window.onload = function() {
-    initializeFirebase();
     initFirebaseAuth();
     updateClock();
     setInterval(updateClock, 30000);
 };
+
 </script>
 </body>
 </html>
