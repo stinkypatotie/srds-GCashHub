@@ -1746,8 +1746,10 @@ function loadTransactions() {
         transactions.sort(function(a,b){ return new Date(b.timestamp)-new Date(a.timestamp); });
         updateHistoryTable();
         updateVerificationTable();
-    }, function(){ showNotification('❌ Failed to load transactions','error'); });
-}
+    }, function(err){
+    alert('Failed to load transactions: ' + (err.code || '') + ' ' + err.message);
+});
+
 
 function deleteTransaction(txId){
     if(!txId){ showNotification('❌ Cannot delete: missing ID','error'); return; }
@@ -1948,6 +1950,10 @@ function initFirebaseAuth() {
     auth.onAuthStateChanged(function(user) {
         if (user) {
             displayDeviceUid(user.uid);
+            if (!window._appStarted) {
+                window._appStarted = true;
+                initializeFirebase();   // load data only after sign-in
+            }
         } else {
             auth.signInAnonymously().catch(function(err) {
                 console.error('Anonymous auth failed:', err);
@@ -1957,6 +1963,7 @@ function initFirebaseAuth() {
         }
     });
 }
+
 function displayDeviceUid(uid) {
     var el = document.getElementById('deviceUidDisplay');
     if (el) el.textContent = uid || 'Not signed in';
@@ -2108,7 +2115,6 @@ function exportRow(label, value, bold, highlight) {
 
 
 window.onload = function() {
-    initializeFirebase();
     initFirebaseAuth();
     updateClock();
     setInterval(updateClock, 30000);
