@@ -2115,6 +2115,7 @@ function exportRow(label, value, bold, highlight) {
 
 
 window.onload = function() {
+    initializeFirebase();
     initFirebaseAuth();
     updateClock();
     setInterval(updateClock, 30000);
