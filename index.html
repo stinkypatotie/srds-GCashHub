@@ -356,6 +356,16 @@
         .claim-btn.sel-claimed { background: linear-gradient(135deg,#10b981,#059669); border-color: #059669; color: #fff; }
         .claim-btn.sel-unclaimed { background: linear-gradient(135deg,#f59e0b,#d97706); border-color: #d97706; color: #fff; }
         #confirmTxnBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .form-row .txn-dt-wrap { display: flex; gap: 8px; }
+        .form-row .txn-dt-wrap input { flex: 1; min-width: 0; background: #f2f2f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+        .check-claim-btn { margin-top: 10px; padding: 11px 16px; font-size: 14px; }
+        .claim-check-result { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; line-height: 1.4; }
+        .claim-check-result.ok  { background: #d1fae5; color: #065f46; }
+        .claim-check-result.bad { background: #fee2e2; color: #991b1b; }
+        .claimed-detail-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f2f2f7; font-size: 14px; }
+        .claimed-detail-row:last-child { border-bottom: none; }
+        .claimed-detail-row span:first-child { color: #8e8e93; font-weight: 600; }
+        .claimed-detail-row span:last-child { color: #1c1c1e; font-weight: 700; text-align: right; }
         .btn-row .btn { flex: 1; }
 
         /* ============================================================
@@ -781,6 +791,15 @@
                     </div>
                 </div>
             </div>
+            <div class="form-row hidden" id="txnCheckRow">
+                <label>Transaction Date &amp; Time</label>
+                <div class="txn-dt-wrap">
+                    <input type="date" id="txnDate" onchange="onClaimCheckInputChange()" oninput="onClaimCheckInputChange()">
+                    <input type="time" id="txnTime" onchange="onClaimCheckInputChange()" oninput="onClaimCheckInputChange()">
+                </div>
+                <button type="button" class="btn btn-info check-claim-btn" id="checkClaimBtn" onclick="checkClaimStatus()">🔍 Check if Claimed / Unclaimed</button>
+                <div id="claimCheckResult" class="claim-check-result hidden"></div>
+            </div>
             <div class="form-row">
                 <label>Tendered Amount (₱)</label>
                 <input type="number" id="tendered" inputmode="decimal" step="0.01" placeholder="0.00" oninput="calculateChange()">
@@ -1068,8 +1087,8 @@
             </div>
             <div class="table-scroll">
                 <table class="data-table">
-                    <thead><tr><th>Date & Time</th><th>Type</th><th>Amount</th><th>Fee</th><th>Total</th><th>Tendered</th><th>Change</th><th>Ref No.</th><th>Status</th><th>Remarks</th><th>Action</th></tr></thead>
-                    <tbody id="verifyTableBody"><tr><td colspan="11" class="empty-state">No transactions yet</td></tr></tbody>
+                    <thead><tr><th>Date & Time</th><th>Type</th><th>Amount</th><th>Fee</th><th>Total</th><th>Tendered</th><th>Change</th><th>Ref No.</th><th>Txn Date/Time</th><th>Status</th><th>Remarks</th><th>Action</th></tr></thead>
+                    <tbody id="verifyTableBody"><tr><td colspan="12" class="empty-state">No transactions yet</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -1104,6 +1123,18 @@
         <div class="admin-form-row"><label>Access Code</label><input type="password" id="adminAccessCode" placeholder="Enter admin code" onkeypress="if(event.key==='Enter') adminLogin()"></div>
         <button class="btn btn-primary" onclick="adminLogin()" style="margin-top:8px;">Login</button>
         <button class="btn btn-secondary" onclick="closeAdminLogin()" style="margin-top:10px;">Cancel</button>
+    </div>
+</div>
+
+<!-- ============================================================
+     ALREADY CLAIMED ALERT (Cash Out availability check)
+============================================================ -->
+<div id="claimedAlertModal" class="modal">
+    <div class="modal-box">
+        <div class="modal-icon">⚠️</div>
+        <div class="modal-title">Already Claimed</div>
+        <div id="claimedAlertBody"></div>
+        <button class="btn btn-primary" onclick="closeClaimedAlert()" style="margin-top:14px;">OK</button>
     </div>
 </div>
 
@@ -1519,6 +1550,10 @@ function openTxnSheet(type) {
     document.getElementById('remarks').value='';
     document.getElementById('txnRefRow').classList.toggle('hidden', type!=='CASH OUT');
     document.getElementById('txnRefNo').value='';
+    document.getElementById('txnCheckRow').classList.toggle('hidden', type!=='CASH OUT');
+    document.getElementById('txnDate').value='';
+    document.getElementById('txnTime').value='';
+    resetClaimCheck();
     _claimStatus='';
     refreshClaimButtons();
     updateConfirmState();
@@ -1592,7 +1627,7 @@ function sanitizeTxnRef() {
     var el=document.getElementById('txnRefNo');
     var clean=el.value.replace(/\D/g,'');
     if(el.value!==clean) el.value=clean;
-    updateConfirmState();
+    onClaimCheckInputChange();
 }
 function selectClaimStatus(val) {
     _claimStatus=val;
@@ -1606,13 +1641,107 @@ function refreshClaimButtons() {
 }
 function isCashOutInfoValid() {
     var ref=(document.getElementById('txnRefNo').value||'');
-    return /^\d{4,}$/.test(ref) && (_claimStatus==='Claimed'||_claimStatus==='Unclaimed');
+    var hasDT=!!document.getElementById('txnDate').value && !!document.getElementById('txnTime').value;
+    var checked=_claimCheckedKey!=='' && _claimCheckedKey===currentClaimCheckKey();
+    return /^\d{4,}$/.test(ref) && (_claimStatus==='Claimed'||_claimStatus==='Unclaimed') && hasDT && checked;
+}
+
+// ---- Cash Out: availability check against saved transactions ----
+// A transaction is "already claimed" when a saved CASH OUT record has the same amount,
+// the same reference number (last 4 digits), the same date and time, and status Claimed.
+var _claimCheckedKey = '';
+function currentClaimCheckKey() {
+    var amt=parseFloat(document.getElementById('amount').value);
+    return [isNaN(amt)?'':amt.toFixed(2),
+            document.getElementById('txnRefNo').value||'',
+            document.getElementById('txnDate').value||'',
+            document.getElementById('txnTime').value||''].join('|');
+}
+function resetClaimCheck() {
+    _claimCheckedKey='';
+    var box=document.getElementById('claimCheckResult');
+    if(box){ box.className='claim-check-result hidden'; box.textContent=''; }
+}
+function onClaimCheckInputChange() {
+    resetClaimCheck();
+    updateConfirmState();
+}
+function escHtml(v) {
+    return String(v==null?'':v).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+function fmtTxnDate(d) {
+    var p=(d||'').split('-');
+    if(p.length!==3) return d||'';
+    return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+}
+function fmtTxnTime(t) {
+    var p=(t||'').split(':'), h=parseInt(p[0],10);
+    if(isNaN(h)) return t||'';
+    return (h%12||12)+':'+(p[1]||'00')+' '+(h>=12?'PM':'AM');
+}
+function txnDateTimeLabel(tx) {
+    if(!tx||!tx.txnDate||!tx.txnTime) return '';
+    return fmtTxnDate(tx.txnDate)+' '+fmtTxnTime(tx.txnTime);
+}
+function findClaimMatches(amount, ref, date, time) {
+    var last4=String(ref).slice(-4), claimed=null, unclaimed=null;
+    for(var i=0;i<transactions.length;i++){
+        var t=transactions[i];
+        if(t.type!=='CASH OUT'||!t.refNo||!t.txnDate||!t.txnTime) continue;
+        if(String(t.refNo).slice(-4)!==last4||t.txnDate!==date||t.txnTime!==time) continue;
+        if(Math.abs((parseFloat(t.amount)||0)-amount)>=0.005) continue;
+        // transactions are sorted newest-first, so keep overwriting to end on the earliest match
+        if(t.claimStatus==='Claimed') claimed=t; else unclaimed=t;
+    }
+    return {claimed:claimed, unclaimed:unclaimed};
+}
+function showClaimedAlert(tx) {
+    var body=document.getElementById('claimedAlertBody');
+    function row(l,v){ return '<div class="claimed-detail-row"><span>'+l+'</span><span>'+escHtml(v)+'</span></div>'; }
+    body.innerHTML=
+        '<div style="text-align:center;color:#991b1b;font-weight:700;font-size:14px;margin-bottom:10px;">This transaction has already been claimed.</div>'+
+        row('Amount','₱'+fmt(tx.amount))+
+        row('Reference No.',tx.refNo)+
+        row('Transaction Date',fmtTxnDate(tx.txnDate))+
+        row('Transaction Time',fmtTxnTime(tx.txnTime))+
+        row('Claimed On',tx.timestamp);
+    document.getElementById('claimedAlertModal').classList.add('open');
+}
+function closeClaimedAlert() {
+    document.getElementById('claimedAlertModal').classList.remove('open');
+}
+function checkClaimStatus() {
+    var amount=parseFloat(document.getElementById('amount').value);
+    var ref=document.getElementById('txnRefNo').value||'';
+    var date=document.getElementById('txnDate').value;
+    var time=document.getElementById('txnTime').value;
+    if(!amount||amount<=0){showNotification('❌ Enter the amount first','error');return;}
+    if(!/^\d{4,}$/.test(ref)){showNotification('❌ Enter a reference number (min. 4 digits)','error');return;}
+    if(!date||!time){showNotification('❌ Select the transaction date and time','error');return;}
+    var box=document.getElementById('claimCheckResult');
+    var m=findClaimMatches(amount,ref,date,time);
+    if(m.claimed){
+        _claimCheckedKey='';
+        box.className='claim-check-result bad';
+        box.textContent='⛔ Already claimed on '+m.claimed.timestamp+'. Confirm is disabled.';
+        showClaimedAlert(m.claimed);
+        showNotification('⛔ Transaction already claimed','error');
+    } else {
+        _claimCheckedKey=currentClaimCheckKey();
+        box.className='claim-check-result ok';
+        box.textContent=m.unclaimed
+            ? '✅ Available for claiming (previously logged as Unclaimed on '+m.unclaimed.timestamp+').'
+            : '✅ Available for claiming. No claimed record found.';
+        showNotification('✅ Available for claiming');
+    }
+    updateConfirmState();
 }
 function updateConfirmState() {
     var btn=document.getElementById('confirmTxnBtn');
     if(!btn||_txnSubmitInProgress) return;
     btn.disabled = (currentTransactionType==='CASH OUT') && !isCashOutInfoValid();
 }
+(function(){ var a=document.getElementById('amount'); if(a) a.addEventListener('input', onClaimCheckInputChange); })();
 function calculateChange() {
     var amount=parseFloat(document.getElementById('amount').value)||0;
     var fee=parseFloat(document.getElementById('fee').value)||0;
@@ -1632,7 +1761,12 @@ function confirmTransaction() {
     // Guard against double-submits: if a save is already in flight (e.g. slow/
     // delayed connection), ignore extra taps instead of pushing a 2nd record.
     if(_txnSubmitInProgress) return;
-    if(currentTransactionType==='CASH OUT' && !isCashOutInfoValid()){showNotification('❌ Enter a reference number (min. 4 digits) and select Claimed or Unclaimed','error');return;}
+    if(currentTransactionType==='CASH OUT' && !isCashOutInfoValid()){showNotification('❌ Complete the reference no., date/time, Claimed/Unclaimed and run the availability check','error');return;}
+    if(currentTransactionType==='CASH OUT'){
+        // Re-verify right before saving in case another device claimed it after the check.
+        var _m=findClaimMatches(parseFloat(document.getElementById('amount').value)||0,document.getElementById('txnRefNo').value,document.getElementById('txnDate').value,document.getElementById('txnTime').value);
+        if(_m.claimed){ onClaimCheckInputChange(); showClaimedAlert(_m.claimed); showNotification('⛔ Transaction already claimed','error'); return; }
+    }
     var amount=parseFloat(document.getElementById('amount').value);
     if(!amount||amount<=0){showNotification('❌ Enter a valid amount','error');return;}
     var fee=parseFloat(document.getElementById('fee').value)||0;
@@ -1642,6 +1776,8 @@ function confirmTransaction() {
     var tx={type:currentTransactionType,amount:amount,fee:fee,total:amount+fee,tendered:tendered,change:change,remarks:remarks,timestamp:new Date().toLocaleString(),user:currentUser||'Staff'};
     if(currentTransactionType==='CASH OUT'){
         tx.refNo=document.getElementById('txnRefNo').value;
+        tx.txnDate=document.getElementById('txnDate').value;
+        tx.txnTime=document.getElementById('txnTime').value;
         tx.claimStatus=_claimStatus;
         var radio=document.querySelector('input[name="feeHandling"]:checked');
         var method=radio?radio.value:'add';
@@ -1850,7 +1986,7 @@ function updateHistoryTable() {
         html+='<div class="tx-item">';
         html+='<div class="tx-item-left">';
         html+='<div class="tx-type"><span class="tx-badge '+badgeCls+'">'+tx.type+'</span>'+(tx.claimStatus?' '+claimBadge(tx.claimStatus):'')+'</div>';
-        html+='<div class="tx-meta">'+timeOnly+(tx.refNo?' · Ref: '+tx.refNo:'')+(tx.remarks?' · '+tx.remarks:'')+'</div>';
+        html+='<div class="tx-meta">'+timeOnly+(tx.refNo?' · Ref: '+tx.refNo:'')+(txnDateTimeLabel(tx)?' · '+txnDateTimeLabel(tx):'')+(tx.remarks?' · '+tx.remarks:'')+'</div>';
         html+='</div>';
         html+='<div class="tx-amount">';
         html+='<div class="tx-total">₱'+fmt(tx.total)+'</div>';
@@ -1879,7 +2015,7 @@ function updateVerificationTable() {
         return true;
     });
     if(transactions.length===0||filtered.length===0){
-        tbody.innerHTML='<tr><td colspan="11" class="empty-state">'+(transactions.length===0?'No transactions yet':'No transactions found')+'</td></tr>';
+        tbody.innerHTML='<tr><td colspan="12" class="empty-state">'+(transactions.length===0?'No transactions yet':'No transactions found')+'</td></tr>';
         document.getElementById('verifyTransactionCount').textContent='0';
         document.getElementById('verifyTotalFees').textContent='₱0.00';
         window.filtered=filtered; updateNetIncomeCard(); return;
@@ -1896,6 +2032,7 @@ function updateVerificationTable() {
         html+='<td>₱'+fmt(tx.tendered||0)+'</td>';
         html+='<td>₱'+fmt(tx.change||0)+'</td>';
         html+='<td>'+(tx.refNo||'-')+'</td>';
+        html+='<td>'+(txnDateTimeLabel(tx)||'-')+'</td>';
         html+='<td>'+claimBadge(tx.claimStatus)+'</td>';
         html+='<td>'+(tx.remarks||'-')+'</td>';
         html+='<td><div style="display:flex; gap:4px;">';
