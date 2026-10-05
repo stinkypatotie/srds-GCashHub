@@ -347,6 +347,15 @@
         .btn-secondary { background: #e5e5ea; color: #3c3c43; }
         .btn-small { padding: 7px 14px; font-size: 13px; border-radius: 10px; width: auto; }
         .btn-row { display: flex; gap: 10px; margin-top: 8px; }
+
+        /* Cash Out: transaction reference + claimed/unclaimed */
+        .txn-ref-wrap { display: flex; gap: 8px; align-items: center; }
+        .txn-ref-wrap input { flex: 1; min-width: 0; }
+        .claim-btns { display: flex; gap: 6px; flex-shrink: 0; }
+        .claim-btn { padding: 9px 12px; border: 2px solid #d1d1d6; background: #f2f2f7; color: #3c3c43; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; touch-action: manipulation; transition: all 0.15s; }
+        .claim-btn.sel-claimed { background: linear-gradient(135deg,#10b981,#059669); border-color: #059669; color: #fff; }
+        .claim-btn.sel-unclaimed { background: linear-gradient(135deg,#f59e0b,#d97706); border-color: #d97706; color: #fff; }
+        #confirmTxnBtn:disabled { opacity: 0.45; cursor: not-allowed; }
         .btn-row .btn { flex: 1; }
 
         /* ============================================================
@@ -762,6 +771,16 @@
 
         <!-- Tendered / Change -->
         <div class="form-section">
+            <div class="form-row hidden" id="txnRefRow">
+                <label>Transaction Reference Number</label>
+                <div class="txn-ref-wrap">
+                    <input type="text" id="txnRefNo" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Min. 4 digits" oninput="sanitizeTxnRef()">
+                    <div class="claim-btns">
+                        <button type="button" class="claim-btn" id="claimBtnClaimed" onclick="selectClaimStatus('Claimed')">Claimed</button>
+                        <button type="button" class="claim-btn" id="claimBtnUnclaimed" onclick="selectClaimStatus('Unclaimed')">Unclaimed</button>
+                    </div>
+                </div>
+            </div>
             <div class="form-row">
                 <label>Tendered Amount (₱)</label>
                 <input type="number" id="tendered" inputmode="decimal" step="0.01" placeholder="0.00" oninput="calculateChange()">
@@ -1049,8 +1068,8 @@
             </div>
             <div class="table-scroll">
                 <table class="data-table">
-                    <thead><tr><th>Date & Time</th><th>Type</th><th>Amount</th><th>Fee</th><th>Total</th><th>Tendered</th><th>Change</th><th>Remarks</th><th>Action</th></tr></thead>
-                    <tbody id="verifyTableBody"><tr><td colspan="9" class="empty-state">No transactions yet</td></tr></tbody>
+                    <thead><tr><th>Date & Time</th><th>Type</th><th>Amount</th><th>Fee</th><th>Total</th><th>Tendered</th><th>Change</th><th>Ref No.</th><th>Status</th><th>Remarks</th><th>Action</th></tr></thead>
+                    <tbody id="verifyTableBody"><tr><td colspan="11" class="empty-state">No transactions yet</td></tr></tbody>
                 </table>
             </div>
         </div>
@@ -1320,6 +1339,11 @@ function typeBadge(type) {
     var s=styles[type]||'';
     return '<span style="'+s+';font-weight:700;padding:3px 7px;border-radius:5px;font-size:11px;">'+type+'</span>';
 }
+function claimBadge(status) {
+    if(status==='Claimed') return '<span style="background:#d1fae5;color:#065f46;font-weight:700;padding:3px 7px;border-radius:5px;font-size:11px;">Claimed</span>';
+    if(status==='Unclaimed') return '<span style="background:#fef3c7;color:#92400e;font-weight:700;padding:3px 7px;border-radius:5px;font-size:11px;">Unclaimed</span>';
+    return '-';
+}
 function showNotification(message, type) {
     type=type||'success';
     var n=document.createElement('div'); n.className='notification '+type; n.textContent=message;
@@ -1493,6 +1517,11 @@ function openTxnSheet(type) {
     document.getElementById('tendered').value='';
     document.getElementById('change').value='';
     document.getElementById('remarks').value='';
+    document.getElementById('txnRefRow').classList.toggle('hidden', type!=='CASH OUT');
+    document.getElementById('txnRefNo').value='';
+    _claimStatus='';
+    refreshClaimButtons();
+    updateConfirmState();
     calculateFee();
     document.getElementById('txnOverlay').classList.add('open');
     document.getElementById('txnSheet').classList.add('open');
@@ -1557,6 +1586,33 @@ function calculateTotal() {
         document.getElementById('displayTotal').textContent='₱'+fmt(amount+fee);
     }
 }
+// ---- Cash Out: transaction reference number + claimed/unclaimed ----
+var _claimStatus = '';
+function sanitizeTxnRef() {
+    var el=document.getElementById('txnRefNo');
+    var clean=el.value.replace(/\D/g,'');
+    if(el.value!==clean) el.value=clean;
+    updateConfirmState();
+}
+function selectClaimStatus(val) {
+    _claimStatus=val;
+    refreshClaimButtons();
+    updateConfirmState();
+}
+function refreshClaimButtons() {
+    var c=document.getElementById('claimBtnClaimed'), u=document.getElementById('claimBtnUnclaimed');
+    c.classList.toggle('sel-claimed', _claimStatus==='Claimed');
+    u.classList.toggle('sel-unclaimed', _claimStatus==='Unclaimed');
+}
+function isCashOutInfoValid() {
+    var ref=(document.getElementById('txnRefNo').value||'');
+    return /^\d{4,}$/.test(ref) && (_claimStatus==='Claimed'||_claimStatus==='Unclaimed');
+}
+function updateConfirmState() {
+    var btn=document.getElementById('confirmTxnBtn');
+    if(!btn||_txnSubmitInProgress) return;
+    btn.disabled = (currentTransactionType==='CASH OUT') && !isCashOutInfoValid();
+}
 function calculateChange() {
     var amount=parseFloat(document.getElementById('amount').value)||0;
     var fee=parseFloat(document.getElementById('fee').value)||0;
@@ -1576,6 +1632,7 @@ function confirmTransaction() {
     // Guard against double-submits: if a save is already in flight (e.g. slow/
     // delayed connection), ignore extra taps instead of pushing a 2nd record.
     if(_txnSubmitInProgress) return;
+    if(currentTransactionType==='CASH OUT' && !isCashOutInfoValid()){showNotification('❌ Enter a reference number (min. 4 digits) and select Claimed or Unclaimed','error');return;}
     var amount=parseFloat(document.getElementById('amount').value);
     if(!amount||amount<=0){showNotification('❌ Enter a valid amount','error');return;}
     var fee=parseFloat(document.getElementById('fee').value)||0;
@@ -1584,6 +1641,8 @@ function confirmTransaction() {
     var remarks=document.getElementById('remarks').value||'';
     var tx={type:currentTransactionType,amount:amount,fee:fee,total:amount+fee,tendered:tendered,change:change,remarks:remarks,timestamp:new Date().toLocaleString(),user:currentUser||'Staff'};
     if(currentTransactionType==='CASH OUT'){
+        tx.refNo=document.getElementById('txnRefNo').value;
+        tx.claimStatus=_claimStatus;
         var radio=document.querySelector('input[name="feeHandling"]:checked');
         var method=radio?radio.value:'add';
         tx.feeHandling=method;
@@ -1606,6 +1665,7 @@ function confirmTransaction() {
     }).finally(function(){
         _txnSubmitInProgress = false;
         if(btn){ btn.disabled=false; btn.textContent=btnOrigText; }
+        updateConfirmState();
     });
 }
 
@@ -1789,8 +1849,8 @@ function updateHistoryTable() {
         var badgeCls=txBadgeClass(tx.type);
         html+='<div class="tx-item">';
         html+='<div class="tx-item-left">';
-        html+='<div class="tx-type"><span class="tx-badge '+badgeCls+'">'+tx.type+'</span></div>';
-        html+='<div class="tx-meta">'+timeOnly+(tx.remarks?' · '+tx.remarks:'')+'</div>';
+        html+='<div class="tx-type"><span class="tx-badge '+badgeCls+'">'+tx.type+'</span>'+(tx.claimStatus?' '+claimBadge(tx.claimStatus):'')+'</div>';
+        html+='<div class="tx-meta">'+timeOnly+(tx.refNo?' · Ref: '+tx.refNo:'')+(tx.remarks?' · '+tx.remarks:'')+'</div>';
         html+='</div>';
         html+='<div class="tx-amount">';
         html+='<div class="tx-total">₱'+fmt(tx.total)+'</div>';
@@ -1819,7 +1879,7 @@ function updateVerificationTable() {
         return true;
     });
     if(transactions.length===0||filtered.length===0){
-        tbody.innerHTML='<tr><td colspan="9" class="empty-state">'+(transactions.length===0?'No transactions yet':'No transactions found')+'</td></tr>';
+        tbody.innerHTML='<tr><td colspan="11" class="empty-state">'+(transactions.length===0?'No transactions yet':'No transactions found')+'</td></tr>';
         document.getElementById('verifyTransactionCount').textContent='0';
         document.getElementById('verifyTotalFees').textContent='₱0.00';
         window.filtered=filtered; updateNetIncomeCard(); return;
@@ -1835,6 +1895,8 @@ function updateVerificationTable() {
         html+='<td><strong>₱'+fmt(tx.total)+'</strong></td>';
         html+='<td>₱'+fmt(tx.tendered||0)+'</td>';
         html+='<td>₱'+fmt(tx.change||0)+'</td>';
+        html+='<td>'+(tx.refNo||'-')+'</td>';
+        html+='<td>'+claimBadge(tx.claimStatus)+'</td>';
         html+='<td>'+(tx.remarks||'-')+'</td>';
         html+='<td><div style="display:flex; gap:4px;">';
         html+='<button class="btn btn-info btn-small" onclick="resendToTelegram(filtered['+i+'])">📤</button>';
