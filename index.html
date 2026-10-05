@@ -1687,11 +1687,20 @@ function findClaimMatches(amount, ref, date, time) {
     var last4=String(ref).slice(-4), claimed=null, unclaimed=null;
     for(var i=0;i<transactions.length;i++){
         var t=transactions[i];
-        if(t.type!=='CASH OUT'||!t.refNo||!t.txnDate||!t.txnTime) continue;
-        if(String(t.refNo).slice(-4)!==last4||t.txnDate!==date||t.txnTime!==time) continue;
+        if(t.type!=='CASH OUT'||!t.refNo) continue;
+        if(String(t.refNo).slice(-4)!==last4) continue;
         if(Math.abs((parseFloat(t.amount)||0)-amount)>=0.005) continue;
-        // transactions are sorted newest-first, so keep overwriting to end on the earliest match
-        if(t.claimStatus==='Claimed') claimed=t; else unclaimed=t;
+        var isClaimed=String(t.claimStatus||'').trim().toLowerCase()==='claimed';
+        var hasDT=!!t.txnDate&&!!t.txnTime;
+        if(isClaimed){
+            // Records saved before date/time was collected have no date/time to compare.
+            // Treat them as claimed on amount + reference alone so they can't be claimed twice.
+            if(t.txnDate&&t.txnDate!==date) continue;
+            if(t.txnTime&&t.txnTime!==time) continue;
+            claimed=t;   // newest-first order, so this ends on the earliest match
+        } else if(hasDT&&t.txnDate===date&&t.txnTime===time){
+            unclaimed=t;
+        }
     }
     return {claimed:claimed, unclaimed:unclaimed};
 }
@@ -1702,8 +1711,8 @@ function showClaimedAlert(tx) {
         '<div style="text-align:center;color:#991b1b;font-weight:700;font-size:14px;margin-bottom:10px;">This transaction has already been claimed.</div>'+
         row('Amount','₱'+fmt(tx.amount))+
         row('Reference No.',tx.refNo)+
-        row('Transaction Date',fmtTxnDate(tx.txnDate))+
-        row('Transaction Time',fmtTxnTime(tx.txnTime))+
+        row('Transaction Date',tx.txnDate?fmtTxnDate(tx.txnDate):'Not recorded')+
+        row('Transaction Time',tx.txnTime?fmtTxnTime(tx.txnTime):'Not recorded')+
         row('Claimed On',tx.timestamp);
     document.getElementById('claimedAlertModal').classList.add('open');
 }
