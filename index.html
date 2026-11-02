@@ -1375,8 +1375,114 @@ function claimBadge(status) {
     if(status==='Unclaimed') return '<span style="background:#fef3c7;color:#92400e;font-weight:700;padding:3px 7px;border-radius:5px;font-size:11px;">Unclaimed</span>';
     return '-';
 }
+// ============================================================
+// ERROR LOGGER — Firebase: errorLogs/<uid>/<category>/<pushId>
+//   <category> = permission_denied | network | auth | telegram | javascript
+//                | <firebase error code, if any other> | other
+//   errorLogs/<uid>/_device = userAgent, last user, last error time/category, build
+// ============================================================
+var APP_BUILD = '2026-11-02-errlog';
+var ERR_QUEUE_KEY = 'gcash_errQueue';
+var _errSuppressUntil = 0, _errSessionCount = 0, _lastErrKey = '', _lastErrAt = 0;
+
+function _errClean(s, n) { return String(s == null ? '' : s).slice(0, n || 300); }
+
+function _errCategory(err, context) {
+    var code = _errClean(err && err.code, 80).toLowerCase();
+    var msg  = _errClean(err && err.message !== undefined ? err.message : err, 300).toLowerCase();
+    var ctx  = _errClean(context, 80).toLowerCase();
+    if (code.indexOf('permission') > -1 || msg.indexOf('permission_denied') > -1 || msg.indexOf('permission denied') > -1) return 'permission_denied';
+    if (ctx.indexOf('telegram') > -1) return 'telegram';
+    if (code.indexOf('network') > -1 || code.indexOf('unavailable') > -1 || code.indexOf('disconnect') > -1 ||
+        msg.indexOf('failed to fetch') > -1 || msg.indexOf('network') > -1 || msg.indexOf('timeout') > -1 || msg.indexOf('offline') > -1) return 'network';
+    if (code.indexOf('auth') === 0 || ctx.indexOf('signin') > -1) return 'auth';
+    if (ctx === 'window.onerror') return 'javascript';
+    if (code) return code.replace(/[.#$\[\]\/\s]+/g, '_').slice(0, 40);   // any other Firebase code gets its own sub node
+    if (err instanceof Error || ctx === 'unhandledrejection') return 'javascript';
+    return 'other';
+}
+
+function logError(context, err, extra) {
+    try {
+        _errSuppressUntil = Date.now() + 700;   // stops showNotification from logging the same error twice
+        var category = _errCategory(err, context);
+        var message = _errClean(err && err.message !== undefined ? err.message : err, 300);
+        var key = category + '|' + context + '|' + message;
+        if (key === _lastErrKey && Date.now() - _lastErrAt < 5000) return;   // skip rapid repeats
+        _lastErrKey = key; _lastErrAt = Date.now();
+        if (_errSessionCount >= 40) return;                                   // flood guard
+        _errSessionCount++;
+        var pm = message.match(/\bat (\/[^\s:]*)/i);
+        var user = null; try { user = firebase.auth().currentUser; } catch (e) {}
+        var entry = {
+            at: Date.now(),
+            time: new Date().toLocaleString(),
+            context: _errClean(context, 80),
+            code: _errClean(err && err.code, 80),
+            message: message,
+            path: pm ? pm[1] : '',
+            appUser: _errClean(currentUser, 60),
+            uidAtError: user ? user.uid : '',   // empty = error happened before sign-in finished
+            online: navigator.onLine,
+            build: APP_BUILD
+        };
+        if (extra) {
+            var ex = {};
+            Object.keys(extra).forEach(function(k){ if (extra[k] != null) ex[k.replace(/[.#$\[\]\/]/g, '_')] = _errClean(extra[k], 200); });
+            if (ex.path && !entry.path) entry.path = ex.path;
+            delete ex.path;
+            if (Object.keys(ex).length) entry.extra = ex;
+        }
+        if (user) _errSend(user.uid, category, entry); else _errQueuePush(category, entry);
+    } catch (e) { /* the logger must never break the app */ }
+}
+
+function _errSend(uid, category, entry) {
+    var e2 = {};
+    Object.keys(entry).forEach(function(k){ e2[k] = entry[k]; });
+    e2.ts = firebase.database.ServerValue.TIMESTAMP;
+    var base = database.ref('errorLogs/' + uid);
+    base.child(category).push(e2).catch(function(){ _errQueuePush(category, entry); });
+    base.child('_device').update({
+        userAgent: _errClean(navigator.userAgent, 200),
+        lastUser: entry.appUser,
+        lastErrorAt: entry.time,
+        lastCategory: category,
+        build: APP_BUILD
+    }).catch(function(){});
+}
+
+function _errQueuePush(category, entry) {
+    try {
+        var q = JSON.parse(localStorage.getItem(ERR_QUEUE_KEY) || '[]');
+        q.push({ category: category, entry: entry });
+        if (q.length > 30) q = q.slice(q.length - 30);
+        localStorage.setItem(ERR_QUEUE_KEY, JSON.stringify(q));
+    } catch (e) {}
+}
+
+function flushErrorQueue() {
+    try {
+        var user = firebase.auth().currentUser;
+        if (!user) return;
+        var q = JSON.parse(localStorage.getItem(ERR_QUEUE_KEY) || '[]');
+        if (!q.length) return;
+        localStorage.removeItem(ERR_QUEUE_KEY);
+        q.forEach(function(item){ _errSend(user.uid, item.category, item.entry); });
+    } catch (e) {}
+}
+
+window.addEventListener('error', function(ev){
+    logError('window.onerror', { message: (ev.message || 'Script error') + ' @' + String(ev.filename || '').split('/').pop() + ':' + ev.lineno });
+});
+window.addEventListener('unhandledrejection', function(ev){
+    var r = ev.reason;
+    logError('unhandledrejection', (r && typeof r === 'object') ? r : { message: String(r) });
+});
+
 function showNotification(message, type) {
     type=type||'success';
+    if(type==='error' && Date.now()>_errSuppressUntil){ logError('ui-error',{message:message}); }
     var n=document.createElement('div'); n.className='notification '+type; n.textContent=message;
     document.body.appendChild(n);
     setTimeout(function(){ n.remove(); }, 3000);
@@ -1428,12 +1534,12 @@ function saveFeeSchedule() {
         if(f>=t){showNotification('❌ Row '+(i+1)+': From must be < To','error');return;}
         ns.push({from:f,to:t,fee:fee});
     }
-    database.ref('settings/feeSchedule').set(ns).then(function(){ feeSchedule=ns; showNotification('✅ Fee schedule saved!'); }).catch(function(){ showNotification('❌ Save failed','error'); });
+    database.ref('settings/feeSchedule').set(ns).then(function(){ feeSchedule=ns; showNotification('✅ Fee schedule saved!'); }).catch(function(e){ logError('saveFeeSchedule', e, {path:'settings/feeSchedule'}); showNotification('❌ Save failed','error'); });
 }
 function saveOtherFees() {
     var ml=parseFloat(document.getElementById('mobileLoadFee').value)||0;
     var bp=parseFloat(document.getElementById('billsPaymentFee').value)||0;
-    database.ref('settings/otherFees').set({mobileLoad:ml,billsPayment:bp}).then(function(){ mobileLoadFee=ml; billsPaymentFee=bp; showNotification('✅ Other fees saved!'); }).catch(function(){ showNotification('❌ Failed','error'); });
+    database.ref('settings/otherFees').set({mobileLoad:ml,billsPayment:bp}).then(function(){ mobileLoadFee=ml; billsPaymentFee=bp; showNotification('✅ Other fees saved!'); }).catch(function(e){ logError('saveOtherFees', e, {path:'settings/otherFees'}); showNotification('❌ Failed','error'); });
 }
 
 // ============================================================
@@ -1454,14 +1560,14 @@ function saveTelegramConfig() {
     var bt=document.getElementById('telegramBotToken').value.trim();
     var ci=document.getElementById('telegramChatId').value.trim();
     if(!bt||!ci){showNotification('❌ Enter both Token and Chat ID','error');return;}
-    database.ref('settings/telegram').set({botToken:bt,chatId:ci,lastUpdated:new Date().toISOString()}).then(function(){ TELEGRAM_BOT_TOKEN=bt; TELEGRAM_CHAT_ID=ci; showNotification('✅ Telegram saved!'); }).catch(function(){showNotification('❌ Failed','error');});
+    database.ref('settings/telegram').set({botToken:bt,chatId:ci,lastUpdated:new Date().toISOString()}).then(function(){ TELEGRAM_BOT_TOKEN=bt; TELEGRAM_CHAT_ID=ci; showNotification('✅ Telegram saved!'); }).catch(function(e){ logError('saveTelegramConfig', e, {path:'settings/telegram'}); showNotification('❌ Failed','error');});
 }
 function testTelegramConnection() {
     var bt=document.getElementById('telegramBotToken').value.trim();
     var ci=document.getElementById('telegramChatId').value.trim();
     if(!bt||!ci){showNotification('❌ Enter Token and Chat ID first','error');return;}
     fetch('https://api.telegram.org/bot'+bt+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:ci,text:'🧪 *Test*\n\nTelegram connected! ✅',parse_mode:'Markdown'})})
-        .then(function(r){return r.json();}).then(function(d){ if(d.ok) showNotification('✅ Connection successful!'); else showNotification('❌ '+( d.description||'Error'),'error'); }).catch(function(e){showNotification('❌ '+e.message,'error');});
+        .then(function(r){return r.json();}).then(function(d){ if(d.ok) showNotification('✅ Connection successful!'); else showNotification('❌ '+( d.description||'Error'),'error'); }).catch(function(e){ logError('testTelegram', e); showNotification('❌ '+e.message,'error');});
 }
 
 // ============================================================
@@ -1484,7 +1590,7 @@ function changeAdminPassword() {
         document.getElementById('newPassword').value='';
         document.getElementById('confirmPassword').value='';
         showNotification('✅ Password changed!');
-    }).catch(function(){showNotification('❌ Failed','error');});
+    }).catch(function(e){ logError('changeAdminPassword', e, {path:'settings/adminPassword'}); showNotification('❌ Failed','error');});
 }
 function goToAdminPage() { showAdminLogin(); }
 function goToMainPage() {
@@ -1806,6 +1912,7 @@ function confirmTransaction() {
         // No manual reload needed — the realtime listener on 'transactions' already
         // refreshes the table the moment this write lands.
     }).catch(function(e){
+        logError('confirmTransaction', e, {path:'transactions', txType:tx.type, fields:Object.keys(tx).join(',')});
         showNotification('❌ Failed: '+e.message,'error');
     }).finally(function(){
         _txnSubmitInProgress = false;
@@ -1917,7 +2024,7 @@ function sendToTelegram(tx) {
     msg+='💵 Total: ₱'+fmt(tx.total)+'\n🤝 Tendered: ₱'+fmt(tx.tendered)+'\n💸 Change: ₱'+fmt(tx.change)+'\n👤 User: '+tx.user;
     if(tx.remarks) msg+='\n📝 '+tx.remarks;
     fetch('https://api.telegram.org/bot'+TELEGRAM_BOT_TOKEN+'/sendMessage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:TELEGRAM_CHAT_ID,text:msg,parse_mode:'Markdown'})})
-        .then(function(r){return r.json();}).then(function(d){if(!d.ok) showNotification('❌ Telegram: '+(d.description||'Error'),'error');}).catch(function(e){showNotification('❌ Telegram: '+e.message,'error');});
+        .then(function(r){return r.json();}).then(function(d){if(!d.ok){ logError('sendToTelegram', {code:'telegram_'+(d.error_code||''), message:d.description||'Error'}); showNotification('❌ Telegram: '+(d.description||'Error'),'error'); }}).catch(function(e){ logError('sendToTelegram', e); showNotification('❌ Telegram: '+e.message,'error');});
 }
 function resendToTelegram(tx) {
     if(!TELEGRAM_BOT_TOKEN||!TELEGRAM_CHAT_ID){showNotification('⚠️ Telegram not configured','info');return;}
@@ -1953,6 +2060,7 @@ function loadTransactions() {
         updateVerificationTable();
     }, function(err){
         console.error('loadTransactions error:', err);
+        logError('loadTransactions', err, {path:'transactions'});
         var detail = err && (err.code || err.message) ? ' ('+(err.code||err.message)+')' : '';
         showNotification('❌ Failed to load transactions'+detail, 'error');
     });
@@ -1965,7 +2073,7 @@ function deleteTransaction(txId){
         showNotification('🗑️ Transaction deleted');
         // No manual reload needed — the realtime listener on 'transactions' already
         // picks up the removal and re-renders the list automatically.
-    }, function(){ showNotification('❌ Failed to delete transaction','error'); });
+    }, function(e){ logError('deleteTransaction', e, {path:'transactions/'+txId}); showNotification('❌ Failed to delete transaction','error'); });
 }
 
 // ============================================================
@@ -2107,7 +2215,7 @@ function setInitialFunds() {
     if(total===0){alert('Enter fund values first.');return;}
     if(confirm('Set ₱'+total.toFixed(2)+' as initial funds?')){
         fundsData={digitalFund:digital,cashFund:cash,totalFunds:total,initialFunds:total,income:0,lastUpdated:new Date().toISOString()};
-        database.ref('funds/current').set(fundsData).then(function(){ updateFundsDisplay(); showNotification('✅ Initial funds set to ₱'+total.toFixed(2)); }).catch(function(e){showNotification('❌ Failed: '+e.message,'error');});
+        database.ref('funds/current').set(fundsData).then(function(){ updateFundsDisplay(); showNotification('✅ Initial funds set to ₱'+total.toFixed(2)); }).catch(function(e){ logError('setInitialFunds', e, {path:'funds/current'}); showNotification('❌ Failed: '+e.message,'error');});
     }
 }
 
@@ -2160,9 +2268,11 @@ function initFirebaseAuth() {
     auth.onAuthStateChanged(function(user) {
         if (user) {
             displayDeviceUid(user.uid);
+            flushErrorQueue();
         } else {
             auth.signInAnonymously().catch(function(err) {
                 console.error('Anonymous auth failed:', err);
+                logError('signInAnonymously', err);
                 var el = document.getElementById('deviceUidDisplay');
                 if (el) el.textContent = 'Auth error: ' + err.message;
             });
