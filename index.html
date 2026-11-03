@@ -661,6 +661,29 @@
 <body>
 
 <!-- ============================================================
+     LOGIN GATE (email + password; session lasts until the browser/tab is closed)
+============================================================ -->
+<div id="loginGate" style="position:fixed; inset:0; z-index:900; background:linear-gradient(135deg,#667eea,#764ba2); display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto;">
+    <div style="background:#fff; border-radius:20px; padding:28px 22px; width:100%; max-width:360px; box-shadow:0 12px 40px rgba(0,0,0,0.25);">
+        <div style="font-size:40px; text-align:center;">💳</div>
+        <h2 style="text-align:center; margin:6px 0 4px; color:#1c1c1e;">GCash Hub</h2>
+        <div id="loginForm">
+            <p style="text-align:center; color:#8e8e93; font-size:13px; margin:0 0 18px;">Sign in to continue</p>
+            <input id="loginEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="none" placeholder="Email" style="width:100%; padding:13px 14px; border:1.5px solid #e5e5ea; border-radius:12px; font-size:16px; margin-bottom:10px; box-sizing:border-box;">
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password" style="width:100%; padding:13px 14px; border:1.5px solid #e5e5ea; border-radius:12px; font-size:16px; box-sizing:border-box;">
+            <div id="loginError" style="color:#ef4444; font-size:13px; min-height:18px; margin:8px 2px 10px;"></div>
+            <button id="loginBtn" class="btn btn-primary" onclick="doLogin()">Sign in</button>
+        </div>
+        <div id="loginPending" style="display:none;">
+            <p style="text-align:center; color:#8e8e93; font-size:13px; margin:0 0 14px;">Signed in as <strong id="pendingEmail"></strong>, but this account has not been approved yet.</p>
+            <div style="background:#f2f2f7; border-radius:12px; padding:12px 14px; font-family:monospace; font-size:12px; word-break:break-all; user-select:all;" id="pendingUid"></div>
+            <p style="font-size:12px; color:#8e8e93; margin:8px 2px 14px;">Send this ID to the admin so it can be added to the allowed list, then sign in again.</p>
+            <button class="btn btn-secondary" onclick="logoutUser()">Use a different account</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
      MAIN APP (Home + History via Tab Bar)
 ============================================================ -->
 <div id="mainApp" class="app-shell">
@@ -951,7 +974,7 @@
         <div id="ac-uid" style="position:relative;top:-118px;visibility:hidden;pointer-events:none;"></div>
         <div class="admin-card">
             <h3>📱 Device UID</h3>
-            <p class="section-hint">This is your <strong>Firebase Auth UID</strong>. Add it to your <code>allowedUids</code> node in the Firebase Realtime Database to grant this device access.</p>
+            <p class="section-hint">This is the <strong>Firebase Auth UID</strong> of the account signed in here (<strong id="signedInEmail"></strong>). It stays the same every time this account logs in. Add it to your <code>allowedUids</code> node in the Firebase Realtime Database to grant access.</p>
             <div style="background:#f2f2f7; border-radius:12px; padding:14px 16px; display:flex; align-items:center; gap:10px; margin-bottom:12px;">
                 <span id="deviceUidDisplay" style="font-family:monospace; font-size:13px; color:#1c1c1e; word-break:break-all; flex:1; user-select:all;">Signing in...</span>
                 <button onclick="copyDeviceUid()" style="flex-shrink:0; background:linear-gradient(135deg,#667eea,#764ba2); color:white; border:none; border-radius:10px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer;">📋 Copy</button>
@@ -960,6 +983,7 @@
                 💡 In Firebase Console → Realtime Database → Data, create:<br>
                 <code style="font-size:11px;">allowedUids / <em>&lt;this UID&gt;</em> / true</code>
             </div>
+            <button class="btn btn-secondary" style="margin-top:12px;" onclick="logoutUser()">🚪 Log out</button>
         </div>
 
         <!-- Fee Config -->
@@ -2263,21 +2287,89 @@ function updateNetIncomeCard() {
 // ============================================================
 // DEVICE UID (Firebase Auth Anonymous)
 // ============================================================
+// ============================================================
+// EMAIL LOGIN — session persistence:
+//   stays signed in on refresh / switching tabs or apps,
+//   signed out when the browser (tab) is closed.
+// ============================================================
+var _appDataLoaded = false;
+
+function showLoginGate() {
+    var g = document.getElementById('loginGate'); if (g) g.style.display = 'flex';
+    var f = document.getElementById('loginForm'); if (f) f.style.display = 'block';
+    var p = document.getElementById('loginPending'); if (p) p.style.display = 'none';
+}
+function hideLoginGate() {
+    var g = document.getElementById('loginGate'); if (g) g.style.display = 'none';
+}
+function showNotApproved(user) {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('pendingEmail').textContent = user.email || '';
+    document.getElementById('pendingUid').textContent = user.uid;
+    document.getElementById('loginPending').style.display = 'block';
+    document.getElementById('loginGate').style.display = 'flex';
+}
+function _startApp() {
+    hideLoginGate();
+    if (!_appDataLoaded) { _appDataLoaded = true; initializeFirebase(); }
+}
+function _onSignedIn(user) {
+    displayDeviceUid(user.uid);
+    var se = document.getElementById('signedInEmail'); if (se) se.textContent = user.email || '';
+    flushErrorQueue();
+    database.ref('allowedUids/' + user.uid).once('value').then(function(snap) {
+        if (snap.exists()) _startApp(); else showNotApproved(user);
+    }, function(err) {
+        logError('checkAllowedUid', err, {path: 'allowedUids/' + user.uid});
+        _startApp();   // could not verify (e.g. offline) - let the normal load errors report the cause
+    });
+}
+function _loginErrorText(e) {
+    var c = (e && e.code) || '';
+    if (c === 'auth/invalid-email') return 'That email address is not valid.';
+    if (c === 'auth/user-disabled') return 'This account has been disabled.';
+    if (c === 'auth/too-many-requests') return 'Too many attempts. Please wait a few minutes and try again.';
+    if (c === 'auth/network-request-failed') return 'No connection. Check your internet and try again.';
+    if (c === 'auth/user-not-found' || c === 'auth/wrong-password' || c === 'auth/invalid-credential' || c === 'auth/invalid-login-credentials') return 'Wrong email or password.';
+    return 'Sign in failed' + (c ? ' (' + c + ')' : '') + '.';
+}
+function doLogin() {
+    var email = (document.getElementById('loginEmail').value || '').trim();
+    var pw = document.getElementById('loginPassword').value || '';
+    var errEl = document.getElementById('loginError');
+    var btn = document.getElementById('loginBtn');
+    if (!email || !pw) { errEl.textContent = 'Enter your email and password.'; return; }
+    errEl.textContent = '';
+    btn.disabled = true; btn.textContent = 'Signing in...';
+    var auth = firebase.auth();
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+        .then(function() { return auth.signInWithEmailAndPassword(email, pw); })
+        .then(function() { document.getElementById('loginEmail').value = ''; })
+        .catch(function(e) { logError('signInWithEmail', e); errEl.textContent = _loginErrorText(e); })
+        .finally(function() { document.getElementById('loginPassword').value = ''; btn.disabled = false; btn.textContent = 'Sign in'; });
+}
+function logoutUser() {
+    firebase.auth().signOut().catch(function(){}).then(function() { location.reload(); });
+}
 function initFirebaseAuth() {
     var auth = firebase.auth();
-    auth.onAuthStateChanged(function(user) {
-        if (user) {
-            displayDeviceUid(user.uid);
-            flushErrorQueue();
-        } else {
-            auth.signInAnonymously().catch(function(err) {
-                console.error('Anonymous auth failed:', err);
-                logError('signInAnonymously', err);
-                var el = document.getElementById('deviceUidDisplay');
-                if (el) el.textContent = 'Auth error: ' + err.message;
-            });
-        }
+    ['loginEmail', 'loginPassword'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', function(ev) { if (ev.key === 'Enter') doLogin(); });
     });
+    // SESSION persistence: login survives refresh and tab/app switching, but ends when the browser/tab is closed
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+        .catch(function(err) { logError('setPersistence', err); })
+        .then(function() {
+            auth.onAuthStateChanged(function(user) {
+                if (user && !user.isAnonymous) {
+                    _onSignedIn(user);
+                } else {
+                    if (user && user.isAnonymous) auth.signOut();   // old anonymous session: require email login
+                    showLoginGate();
+                }
+            });
+        });
 }
 function displayDeviceUid(uid) {
     var el = document.getElementById('deviceUidDisplay');
@@ -2430,8 +2522,7 @@ function exportRow(label, value, bold, highlight) {
 
 
 window.onload = function() {
-    initializeFirebase();
-    initFirebaseAuth();
+    initFirebaseAuth();   // initializeFirebase() now runs after a successful, approved sign-in
     updateClock();
     setInterval(updateClock, 30000);
 };
